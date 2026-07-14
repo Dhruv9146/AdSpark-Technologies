@@ -18,11 +18,49 @@ import {
   ActivityLog
 } from './types';
 
+import {
+  seedServices,
+  seedProjects,
+  seedBlogs,
+  seedCareers,
+  seedTestimonials,
+  seedClients,
+  seedGallery,
+  seedTeam,
+  seedInvoices,
+  defaultSEO,
+  defaultSettings,
+  defaultAnalytics,
+  initialLogs,
+  initialApplications,
+  initialMessages,
+  initialSubscribers
+} from './data';
+
 // Import modular layouts
 import { FrontendPages } from './components/FrontendPages';
 import { AdminDashboard } from './components/AdminDashboard';
 import { AdminLogin } from './components/AdminLogin';
 import * as Lucide from 'lucide-react';
+
+const fallbackData = {
+  services: seedServices,
+  projects: seedProjects,
+  blogs: seedBlogs,
+  careers: seedCareers,
+  applications: initialApplications,
+  messages: initialMessages,
+  subscribers: initialSubscribers,
+  testimonials: seedTestimonials,
+  clients: seedClients,
+  gallery: seedGallery,
+  team: seedTeam,
+  invoices: seedInvoices,
+  seo: defaultSEO,
+  settings: defaultSettings,
+  analytics: defaultAnalytics,
+  logs: initialLogs
+};
 
 export default function App() {
   const [loading, setLoading] = useState<boolean>(true);
@@ -62,9 +100,13 @@ export default function App() {
       if (res.ok) {
         const payload = await res.json();
         setData(payload);
+      } else {
+        console.warn('Backend returned non-ok status, using local fallback.');
+        setData(prev => prev || fallbackData);
       }
     } catch (err) {
-      console.error('Error synchronizing database:', err);
+      console.error('Error synchronizing database, using local fallback:', err);
+      setData(prev => prev || fallbackData);
     } finally {
       setLoading(false);
     }
@@ -72,6 +114,20 @@ export default function App() {
 
   useEffect(() => {
     fetchDatabase();
+
+    // Safety timeout to ensure preloader disappears within 1 second under any conditions
+    const timeoutId = setTimeout(() => {
+      setLoading(false);
+      setData(prev => {
+        if (!prev) {
+          console.warn('1-second safety timeout triggered. Using static database fallback.');
+          return fallbackData;
+        }
+        return prev;
+      });
+    }, 1000);
+
+    return () => clearTimeout(timeoutId);
   }, []);
 
   // Sync document SEO whenever seo/settings update

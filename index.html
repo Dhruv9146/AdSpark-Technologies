@@ -3,11 +3,132 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>My Google AI Studio App</title>
+    <title>AdSpark Technologies | Enterprise Digital Engineering</title>
+
+    <!-- Error isolation script: catches and prevents external script errors from halting application load -->
+    <script>
+      window.addEventListener('error', function(e) {
+        console.warn('Gracefully isolated error:', e.message || e);
+        // Prevent default browser logging/halting behavior
+        e.preventDefault();
+      }, true);
+    </script>
+
+    <!-- External CSS Libraries -->
+    <!-- Bootstrap -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap-grid.min.css" onerror="console.warn('Bootstrap grid CDN failed to load')" />
+    <!-- FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" onerror="console.warn('FontAwesome CDN failed to load')" />
+    <!-- AOS (Animate On Scroll) -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/aos@2.3.4/dist/aos.css" onerror="console.warn('AOS CSS CDN failed to load')" />
+    <!-- Swiper CSS -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11.1.1/swiper-bundle.min.css" onerror="console.warn('Swiper CSS CDN failed to load')" />
+    <!-- GLightbox CSS -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/glightbox/dist/css/glightbox.min.css" onerror="console.warn('GLightbox CSS CDN failed to load')" />
   </head>
-  <body>
+  <body class="bg-slate-950 text-slate-100">
+
+    <!-- Theme-matching Preloader styled in pure HTML/CSS for immediate loading feedback -->
+    <div id="preloader" style="
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: #0f172a; /* bg-slate-900 */
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 99999;
+      transition: opacity 0.5s ease, visibility 0.5s ease;
+      font-family: system-ui, -apple-system, sans-serif;
+      color: #ffffff;
+    ">
+      <div style="
+        padding: 1rem;
+        background-color: #2563eb; /* brand-blue */
+        border-radius: 1.5rem;
+        margin-bottom: 1rem;
+        box-shadow: 0 10px 15px -3px rgba(37, 99, 235, 0.4);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      ">
+        <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: #ffffff;">
+          <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/>
+          <path d="m5 3 1 2.5L8.5 6 6 7 5 9.5 4 7 1.5 6 4 5.5 5 3Z" opacity="0.6"/>
+          <path d="m19 17 1 2.5 2.5.5-2.5 1-1 2.5-1-2.5-2.5-1 2.5-1 1-2.5Z" opacity="0.6"/>
+        </svg>
+      </div>
+      <div style="text-align: center;">
+        <span style="
+          font-size: 0.875rem;
+          font-weight: 700;
+          letter-spacing: 0.1em;
+          text-transform: uppercase;
+          display: block;
+          color: #3b82f6; /* text-brand-blue */
+          margin-bottom: 0.25rem;
+        ">AdSpark Technologies</span>
+        <span style="
+          font-size: 0.75rem;
+          color: #94a3b8; /* text-slate-400 */
+          font-weight: 500;
+          display: block;
+        ">Booting dynamic system engine...</span>
+      </div>
+    </div>
+
+    <!-- Main React App root -->
     <div id="root"></div>
+
+    <!-- External JS Libraries -->
+    <!-- Bootstrap Bundle JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" async onerror="console.warn('Bootstrap JS CDN failed to load')"></script>
+    <!-- AOS (Animate On Scroll) JS -->
+    <script src="https://cdn.jsdelivr.net/npm/aos@2.3.4/dist/aos.js" async onload="try{ if(typeof AOS !== 'undefined') AOS.init({ duration: 800, once: true }); }catch(e){}" onerror="console.warn('AOS JS CDN failed to load')"></script>
+    <!-- Swiper JS -->
+    <script src="https://cdn.jsdelivr.net/npm/swiper@11.1.1/swiper-bundle.min.js" async onerror="console.warn('Swiper JS CDN failed to load')"></script>
+    <!-- GLightbox JS -->
+    <script src="https://cdn.jsdelivr.net/npm/glightbox/dist/js/glightbox.min.js" async onerror="console.warn('GLightbox JS CDN failed to load')"></script>
+
+    <!-- Preloader & Safety Execution Logic -->
+    <script>
+      // Function to securely fade out and remove the preloader
+      function hidePreloader() {
+        const preloader = document.getElementById("preloader");
+        if (preloader) {
+          preloader.style.opacity = "0";
+          preloader.style.visibility = "hidden";
+          setTimeout(() => {
+            if (preloader.parentNode) {
+              preloader.remove();
+            }
+          }, 500);
+        }
+      }
+
+      // Hide preloader on page load
+      window.addEventListener("load", hidePreloader);
+
+      // DOMContentLoaded event fallback just in case some resources are slower
+      document.addEventListener("DOMContentLoaded", function() {
+        // Safe AOS trigger
+        setTimeout(() => {
+          try {
+            if (typeof AOS !== 'undefined') {
+              AOS.init({ duration: 800, once: true });
+            }
+          } catch (e) {}
+        }, 300);
+      });
+
+      // Absolute safety timeout: ensure preloader disappears in 1 second at the absolute latest
+      setTimeout(hidePreloader, 1000);
+    </script>
+
+    <!-- Primary entry module -->
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
-
