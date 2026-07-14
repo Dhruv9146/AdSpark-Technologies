@@ -21,6 +21,43 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ onLoginSuccess, onClose 
   const [verifyCode, setVerifyCode] = useState<string>('');
   const [newPassword, setNewPassword] = useState<string>('');
 
+  const checkApiAvailability = async (retries = 3, delayMs = 1000): Promise<boolean> => {
+    const healthUrl = '/api/health';
+    const timeoutMs = 3000;
+
+    for (let attempt = 1; attempt <= retries; attempt++) {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+      try {
+        const res = await fetch(healthUrl, {
+          method: 'GET',
+          headers: { 'Accept': 'application/json' },
+          signal: controller.signal
+        });
+        clearTimeout(timeoutId);
+
+        if (res.ok) {
+          const contentType = res.headers.get('content-type');
+          if (contentType && contentType.includes('application/json')) {
+            const data = await res.json();
+            if (data && data.status === 'ok') {
+              return true;
+            }
+          }
+        }
+        throw new Error('Invalid server response');
+      } catch (err: any) {
+        clearTimeout(timeoutId);
+        console.warn(`Health check attempt ${attempt} failed: ${err.message}`);
+        if (attempt < retries) {
+          await new Promise((resolve) => setTimeout(resolve, delayMs));
+        }
+      }
+    }
+    return false;
+  };
+
   const safeFetch = async (url: string, options: RequestInit, retries = 2, delayMs = 1000): Promise<Response> => {
     const timeoutMs = 8000;
     
@@ -37,7 +74,7 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ onLoginSuccess, onClose 
 
         const contentType = res.headers.get('content-type');
         if (!contentType || !contentType.includes('application/json')) {
-          throw new Error('Our API services are currently initializing. Please wait a few seconds and try again.');
+          throw new Error('The server returned an invalid response (non-JSON). The service might be temporarily misconfigured or unavailable.');
         }
 
         return res;
@@ -81,6 +118,12 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ onLoginSuccess, onClose 
     setLoading(true);
 
     try {
+      // First verify API availability
+      const isApiAvailable = await checkApiAvailability();
+      if (!isApiAvailable) {
+        throw new Error('The authentication service is temporarily unavailable. Please try again later.');
+      }
+
       const res = await safeFetch('/api/auth/login', {
         method: 'POST',
         headers: {
@@ -128,6 +171,12 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ onLoginSuccess, onClose 
     setLoading(true);
 
     try {
+      // First verify API availability
+      const isApiAvailable = await checkApiAvailability();
+      if (!isApiAvailable) {
+        throw new Error('The authentication service is temporarily unavailable. Please try again later.');
+      }
+
       const res = await safeFetch('/api/auth/forgot-password', {
         method: 'POST',
         headers: {
@@ -167,6 +216,12 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ onLoginSuccess, onClose 
     setLoading(true);
 
     try {
+      // First verify API availability
+      const isApiAvailable = await checkApiAvailability();
+      if (!isApiAvailable) {
+        throw new Error('The authentication service is temporarily unavailable. Please try again later.');
+      }
+
       const res = await safeFetch('/api/auth/reset-password', {
         method: 'POST',
         headers: {
