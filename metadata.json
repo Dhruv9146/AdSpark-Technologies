@@ -1,0 +1,6 @@
+{
+  "name": "AdSpark Technologies",
+  "description": "Dynamic full-stack IT corporate portal with advanced glassmorphism administrative dashboard, content management system, blog, services catalog, active job postings, and sitemap generation.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

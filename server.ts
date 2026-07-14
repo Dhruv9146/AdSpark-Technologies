@@ -1,0 +1,831 @@
+import express from 'express';
+import path from 'path';
+import fs from 'fs';
+import { createServer as createViteServer } from 'vite';
+import { GoogleGenAI } from '@google/genai';
+import dotenv from 'dotenv';
+
+// Load environment variables
+dotenv.config();
+
+// Default seed values if database.json doesn't exist yet
+import {
+  seedServices,
+  seedProjects,
+  seedBlogs,
+  seedCareers,
+  seedTestimonials,
+  seedClients,
+  seedGallery,
+  seedTeam,
+  seedInvoices,
+  defaultSEO,
+  defaultSettings,
+  defaultAnalytics,
+  initialLogs,
+  initialApplications,
+  initialMessages,
+  initialSubscribers
+} from './src/data.js';
+
+const app = express();
+const PORT = 3000;
+
+// Body parsing
+app.use(express.json({ limit: '20mb' }));
+app.use(express.urlencoded({ extended: true, limit: '20mb' }));
+
+// Database File Path
+const DB_PATH = path.join(process.cwd(), 'database.json');
+
+// Initialize Gemini SDK with User-Agent telemetry
+let ai: GoogleGenAI | null = null;
+if (process.env.GEMINI_API_KEY) {
+  ai = new GoogleGenAI({
+    apiKey: process.env.GEMINI_API_KEY,
+    httpOptions: {
+      headers: {
+        'User-Agent': 'aistudio-build',
+      }
+    }
+  });
+}
+
+// In-Memory Database State
+let DB = {
+  services: seedServices,
+  projects: seedProjects,
+  blogs: seedBlogs,
+  careers: seedCareers,
+  testimonials: seedTestimonials,
+  clients: seedClients,
+  gallery: seedGallery,
+  team: seedTeam,
+  invoices: seedInvoices,
+  seo: defaultSEO,
+  settings: defaultSettings,
+  analytics: defaultAnalytics,
+  logs: initialLogs,
+  applications: initialApplications,
+  messages: initialMessages,
+  subscribers: initialSubscribers,
+  // SMTP mock logs to let user inspect "sent" emails inside Admin UI!
+  systemEmails: [
+    {
+      id: 'em-1',
+      to: 'info@adsparktech.com',
+      subject: 'New Application Received: Senior Developer',
+      body: 'Jane Doe has submitted an application for Senior Full-Stack TypeScript Developer. Read cover letter inside Admin Careers application section.',
+      sentAt: new Date().toISOString()
+    }
+  ]
+};
+
+// Database utility functions
+function loadDatabase() {
+  try {
+    if (fs.existsSync(DB_PATH)) {
+      const data = fs.readFileSync(DB_PATH, 'utf-8');
+      const parsed = JSON.parse(data);
+      // Merge keys to support updates gracefully
+      DB = { ...DB, ...parsed };
+      console.log('Database loaded successfully from database.json');
+    } else {
+      saveDatabase();
+      console.log('No database.json found. Created new from seed data.');
+    }
+  } catch (err) {
+    console.error('Error loading database, resetting to seed:', err);
+  }
+}
+
+function saveDatabase() {
+  try {
+    fs.writeFileSync(DB_PATH, JSON.stringify(DB, null, 2), 'utf-8');
+  } catch (err) {
+    console.error('Error saving database to file:', err);
+  }
+}
+
+// Initialize datastore
+loadDatabase();
+
+// Activity logging helper
+function logAction(adminEmail: string, action: string, details: string, req: express.Request) {
+  const newLog = {
+    id: `log-${Date.now()}`,
+    adminEmail,
+    action,
+    details,
+    ipAddress: req.ip || '127.0.0.1',
+    timestamp: new Date().toISOString()
+  };
+  DB.logs.unshift(newLog);
+  saveDatabase();
+}
+
+// Email notifier simulator helper
+function sendSimulatedEmail(to: string, subject: string, body: string) {
+  const newEmail = {
+    id: `em-${Date.now()}`,
+    to,
+    subject,
+    body,
+    sentAt: new Date().toISOString()
+  };
+  DB.systemEmails.unshift(newEmail);
+  saveDatabase();
+  console.log(`[SMTP SIMULATOR] Sent email to ${to}: "${subject}"`);
+}
+
+// REST APIs
+
+// 0. Complete Database Sync
+app.get('/api/db', (req, res) => {
+  res.json({
+    services: DB.services,
+    projects: DB.projects,
+    blogs: DB.blogs,
+    careers: DB.careers,
+    applications: DB.applications,
+    messages: DB.messages,
+    subscribers: DB.subscribers,
+    testimonials: DB.testimonials,
+    clients: DB.clients,
+    gallery: DB.gallery,
+    team: DB.team,
+    invoices: DB.invoices,
+    seo: DB.seo,
+    settings: DB.settings,
+    analytics: DB.analytics,
+    logs: DB.logs
+  });
+});
+
+// 1. Auth Module
+app.post('/api/auth/login', (req, res) => {
+  const { email, password } = req.body;
+  if (!email || !password) {
+    return res.status(400).json({ error: 'Email and password are required' });
+  }
+
+  // Simple auth simulation (Default credentials: adsparktechnologies01@gmail.com / AdSpark@2026)
+  if (email === 'adsparktechnologies01@gmail.com' && password === 'AdSpark@2026') {
+    logAction(email, 'User Authentication', 'Admin logged in successfully', req);
+    return res.json({
+      success: true,
+      token: `token-admin-${Date.now()}`,
+      user: {
+        email: 'adsparktechnologies01@gmail.com',
+        name: 'Dhruv Marathe',
+        role: 'Administrator'
+      }
+    });
+  }
+
+  return res.status(401).json({ error: 'Invalid email or password' });
+});
+
+// Admin verification middleware
+function requireAdmin(req: express.Request, res: express.Response, next: express.NextFunction) {
+  const authHeader = req.headers.authorization;
+  if (authHeader && authHeader.startsWith('Bearer token-admin')) {
+    next();
+  } else {
+    res.status(403).json({ error: 'Unauthorized. Admin credentials required.' });
+  }
+}
+
+// 2. Services REST API
+app.get('/api/services', (req, res) => {
+  res.json(DB.services);
+});
+
+app.post('/api/services', requireAdmin, (req, res) => {
+  const newService = { ...req.body, id: req.body.id || `service-${Date.now()}` };
+  DB.services.push(newService);
+  saveDatabase();
+  logAction('admin@adspark.com', 'Create Service', `Created new service: ${newService.title}`, req);
+  res.status(201).json(newService);
+});
+
+app.put('/api/services/:id', requireAdmin, (req, res) => {
+  const { id } = req.params;
+  const index = DB.services.findIndex(s => s.id === id);
+  if (index !== -1) {
+    DB.services[index] = { ...DB.services[index], ...req.body };
+    saveDatabase();
+    logAction('admin@adspark.com', 'Update Service', `Updated service details: ${DB.services[index].title}`, req);
+    res.json(DB.services[index]);
+  } else {
+    res.status(404).json({ error: 'Service not found' });
+  }
+});
+
+app.delete('/api/services/:id', requireAdmin, (req, res) => {
+  const { id } = req.params;
+  const filtered = DB.services.filter(s => s.id !== id);
+  if (filtered.length !== DB.services.length) {
+    DB.services = filtered;
+    saveDatabase();
+    logAction('admin@adspark.com', 'Delete Service', `Deleted service ID: ${id}`, req);
+    res.json({ success: true });
+  } else {
+    res.status(404).json({ error: 'Service not found' });
+  }
+});
+
+// 3. Portfolio Projects REST API
+app.get('/api/projects', (req, res) => {
+  res.json(DB.projects);
+});
+
+app.post('/api/projects', requireAdmin, (req, res) => {
+  const newProject = { ...req.body, id: `proj-${Date.now()}` };
+  if (!newProject.images || newProject.images.length === 0) {
+    newProject.images = ['https://images.unsplash.com/photo-1460925895917-afdab827c52f?q=80&w=800&auto=format&fit=crop'];
+  }
+  DB.projects.push(newProject);
+  saveDatabase();
+  logAction('admin@adspark.com', 'Create Project', `Added project: ${newProject.title}`, req);
+  res.status(201).json(newProject);
+});
+
+app.put('/api/projects/:id', requireAdmin, (req, res) => {
+  const { id } = req.params;
+  const index = DB.projects.findIndex(p => p.id === id);
+  if (index !== -1) {
+    DB.projects[index] = { ...DB.projects[index], ...req.body };
+    saveDatabase();
+    logAction('admin@adspark.com', 'Update Project', `Updated project details: ${DB.projects[index].title}`, req);
+    res.json(DB.projects[index]);
+  } else {
+    res.status(404).json({ error: 'Project not found' });
+  }
+});
+
+app.delete('/api/projects/:id', requireAdmin, (req, res) => {
+  const { id } = req.params;
+  const filtered = DB.projects.filter(p => p.id !== id);
+  if (filtered.length !== DB.projects.length) {
+    DB.projects = filtered;
+    saveDatabase();
+    logAction('admin@adspark.com', 'Delete Project', `Deleted project ID: ${id}`, req);
+    res.json({ success: true });
+  } else {
+    res.status(404).json({ error: 'Project not found' });
+  }
+});
+
+// 4. Blogs REST API
+app.get('/api/blogs', (req, res) => {
+  res.json(DB.blogs);
+});
+
+app.post('/api/blogs', requireAdmin, (req, res) => {
+  const newBlog = {
+    ...req.body,
+    id: `blog-${Date.now()}`,
+    slug: req.body.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, ''),
+    views: 0,
+    comments: [],
+    publishedAt: new Date().toISOString().split('T')[0]
+  };
+  DB.blogs.push(newBlog);
+  saveDatabase();
+  logAction('admin@adspark.com', 'Create Blog Post', `Published article: ${newBlog.title}`, req);
+  res.status(201).json(newBlog);
+});
+
+app.put('/api/blogs/:id', requireAdmin, (req, res) => {
+  const { id } = req.params;
+  const index = DB.blogs.findIndex(b => b.id === id);
+  if (index !== -1) {
+    DB.blogs[index] = { ...DB.blogs[index], ...req.body };
+    saveDatabase();
+    logAction('admin@adspark.com', 'Update Blog Post', `Modified blog article: ${DB.blogs[index].title}`, req);
+    res.json(DB.blogs[index]);
+  } else {
+    res.status(404).json({ error: 'Blog not found' });
+  }
+});
+
+app.delete('/api/blogs/:id', requireAdmin, (req, res) => {
+  const { id } = req.params;
+  const filtered = DB.blogs.filter(b => b.id !== id);
+  if (filtered.length !== DB.blogs.length) {
+    DB.blogs = filtered;
+    saveDatabase();
+    logAction('admin@adspark.com', 'Delete Blog Post', `Deleted blog post ID: ${id}`, req);
+    res.json({ success: true });
+  } else {
+    res.status(404).json({ error: 'Blog not found' });
+  }
+});
+
+// Blog comments and hit updates
+app.post('/api/blogs/:id/comments', (req, res) => {
+  const { id } = req.params;
+  const { author, email, content } = req.body;
+  if (!author || !email || !content) {
+    return res.status(400).json({ error: 'Author, email and content are required' });
+  }
+  const index = DB.blogs.findIndex(b => b.id === id);
+  if (index !== -1) {
+    const newComment = {
+      id: `comment-${Date.now()}`,
+      author,
+      email,
+      content,
+      createdAt: new Date().toISOString(),
+      approved: true // Auto-approved in preview for convenience, admin can manage
+    };
+    DB.blogs[index].comments.push(newComment);
+    saveDatabase();
+    res.status(201).json(newComment);
+  } else {
+    res.status(404).json({ error: 'Blog article not found' });
+  }
+});
+
+app.post('/api/blogs/:id/view', (req, res) => {
+  const { id } = req.params;
+  const index = DB.blogs.findIndex(b => b.id === id);
+  if (index !== -1) {
+    DB.blogs[index].views = (DB.blogs[index].views || 0) + 1;
+    saveDatabase();
+    res.json({ views: DB.blogs[index].views });
+  } else {
+    res.status(404).json({ error: 'Blog not found' });
+  }
+});
+
+// 5. Careers REST API
+app.get('/api/careers', (req, res) => {
+  res.json(DB.careers);
+});
+
+app.post('/api/careers', requireAdmin, (req, res) => {
+  const newCareer = { ...req.body, id: `job-${Date.now()}` };
+  DB.careers.push(newCareer);
+  saveDatabase();
+  logAction('admin@adspark.com', 'Post Career Job', `Listed opening: ${newCareer.title}`, req);
+  res.status(201).json(newCareer);
+});
+
+app.put('/api/careers/:id', requireAdmin, (req, res) => {
+  const { id } = req.params;
+  const index = DB.careers.findIndex(c => c.id === id);
+  if (index !== -1) {
+    DB.careers[index] = { ...DB.careers[index], ...req.body };
+    saveDatabase();
+    logAction('admin@adspark.com', 'Update Career Job', `Updated job listing: ${DB.careers[index].title}`, req);
+    res.json(DB.careers[index]);
+  } else {
+    res.status(404).json({ error: 'Job listing not found' });
+  }
+});
+
+app.delete('/api/careers/:id', requireAdmin, (req, res) => {
+  const { id } = req.params;
+  const filtered = DB.careers.filter(c => c.id !== id);
+  if (filtered.length !== DB.careers.length) {
+    DB.careers = filtered;
+    saveDatabase();
+    logAction('admin@adspark.com', 'Delete Career Job', `Deleted job ID: ${id}`, req);
+    res.json({ success: true });
+  } else {
+    res.status(404).json({ error: 'Career not found' });
+  }
+});
+
+// 6. Online Careers Job Applications API
+app.get('/api/applications', requireAdmin, (req, res) => {
+  res.json(DB.applications);
+});
+
+app.post('/api/applications', (req, res) => {
+  const { careerId, jobTitle, fullName, email, phone, coverLetter, resumeUrl } = req.body;
+  if (!careerId || !fullName || !email || !phone) {
+    return res.status(400).json({ error: 'Job, candidate details, and contact coordinates are required' });
+  }
+  const newApplication = {
+    id: `app-${Date.now()}`,
+    careerId,
+    jobTitle: jobTitle || 'IT Professional Post',
+    fullName,
+    email,
+    phone,
+    resumeUrl: resumeUrl || '/uploads/resumes/simulated_upload.pdf',
+    coverLetter,
+    status: 'Pending' as const,
+    appliedAt: new Date().toISOString()
+  };
+  DB.applications.push(newApplication);
+  saveDatabase();
+
+  // Send transactional simulated administrative alert
+  sendSimulatedEmail(
+    DB.settings.contactEmail,
+    `New Application: ${fullName} Applied For ${newApplication.jobTitle}`,
+    `Review Jane application portal details. Email: ${email} | Phone: ${phone}\n\nCover Letter Preview:\n${coverLetter || 'None'}`
+  );
+
+  res.status(201).json(newApplication);
+});
+
+app.put('/api/applications/:id', requireAdmin, (req, res) => {
+  const { id } = req.params;
+  const { status } = req.body;
+  const index = DB.applications.findIndex(a => a.id === id);
+  if (index !== -1) {
+    DB.applications[index].status = status;
+    saveDatabase();
+    logAction('admin@adspark.com', 'Evaluate Application', `Updated applicant ${DB.applications[index].fullName} status to: ${status}`, req);
+
+    // Simulated email confirmation to candidates
+    sendSimulatedEmail(
+      DB.applications[index].email,
+      `Application Status Update - AdSpark Technologies`,
+      `Hi ${DB.applications[index].fullName},\n\nWe appreciate your interest in AdSpark Technologies. The status of your application for ${DB.applications[index].jobTitle} has been updated to: "${status}". Our team will reach out directly for corresponding next steps.\n\nWarm regards,\nAdSpark HR Recruits`
+    );
+
+    res.json(DB.applications[index]);
+  } else {
+    res.status(404).json({ error: 'Application not found' });
+  }
+});
+
+app.delete('/api/applications/:id', requireAdmin, (req, res) => {
+  const { id } = req.params;
+  const filtered = DB.applications.filter(a => a.id !== id);
+  if (filtered.length !== DB.applications.length) {
+    DB.applications = filtered;
+    saveDatabase();
+    res.json({ success: true });
+  } else {
+    res.status(404).json({ error: 'Application not found' });
+  }
+});
+
+// 7. Contacts Messages Storage API
+app.get('/api/contacts', requireAdmin, (req, res) => {
+  res.json(DB.messages);
+});
+
+app.post('/api/contacts', (req, res) => {
+  const { name, email, subject, message } = req.body;
+  if (!name || !email || !message) {
+    return res.status(400).json({ error: 'Name, email and message text are required' });
+  }
+  const newMessage = {
+    id: `msg-${Date.now()}`,
+    name,
+    email,
+    subject: subject || 'General IT Business Query',
+    message,
+    status: 'Unread' as const,
+    submittedAt: new Date().toISOString()
+  };
+  DB.messages.push(newMessage);
+  saveDatabase();
+
+  // Simulated email alerts
+  sendSimulatedEmail(
+    DB.settings.contactEmail,
+    `New Web Inquiry: "${newMessage.subject}" from ${name}`,
+    `Inquirer Name: ${name}\nEmail Address: ${email}\n\nMessage Body:\n${message}`
+  );
+
+  res.status(201).json(newMessage);
+});
+
+app.put('/api/contacts/:id', requireAdmin, (req, res) => {
+  const { id } = req.params;
+  const { status } = req.body;
+  const index = DB.messages.findIndex(m => m.id === id);
+  if (index !== -1) {
+    DB.messages[index].status = status;
+    saveDatabase();
+    res.json(DB.messages[index]);
+  } else {
+    res.status(404).json({ error: 'Contact message not found' });
+  }
+});
+
+app.delete('/api/contacts/:id', requireAdmin, (req, res) => {
+  const { id } = req.params;
+  const filtered = DB.messages.filter(m => m.id !== id);
+  if (filtered.length !== DB.messages.length) {
+    DB.messages = filtered;
+    saveDatabase();
+    res.json({ success: true });
+  } else {
+    res.status(404).json({ error: 'Message not found' });
+  }
+});
+
+// 8. Newsletter Subscribers API
+app.get('/api/subscribers', requireAdmin, (req, res) => {
+  res.json(DB.subscribers);
+});
+
+app.post('/api/subscribers', (req, res) => {
+  const { email } = req.body;
+  if (!email || !email.includes('@')) {
+    return res.status(400).json({ error: 'Please submit a valid email address' });
+  }
+  const exists = DB.subscribers.some(s => s.email.toLowerCase() === email.toLowerCase());
+  if (exists) {
+    return res.status(200).json({ success: true, message: 'Already subscribed!' });
+  }
+  const newSub = {
+    id: `sub-${Date.now()}`,
+    email,
+    subscribedAt: new Date().toISOString(),
+    status: 'Active' as const
+  };
+  DB.subscribers.push(newSub);
+  saveDatabase();
+
+  sendSimulatedEmail(
+    email,
+    'Subscription Confirmed - AdSpark Tech Insights',
+    'Thank you for subscribing to AdSpark Technologies. We periodically publish modern architectural breakdowns, software advice, and IT resources.'
+  );
+
+  res.status(201).json({ success: true, subscriber: newSub });
+});
+
+app.delete('/api/subscribers/:id', requireAdmin, (req, res) => {
+  const { id } = req.params;
+  const filtered = DB.subscribers.filter(s => s.id !== id);
+  if (filtered.length !== DB.subscribers.length) {
+    DB.subscribers = filtered;
+    saveDatabase();
+    res.json({ success: true });
+  } else {
+    res.status(404).json({ error: 'Subscriber not found' });
+  }
+});
+
+// 9. Website & SEO Settings API
+app.get('/api/settings', (req, res) => {
+  res.json({ settings: DB.settings, seo: DB.seo });
+});
+
+app.put('/api/settings', requireAdmin, (req, res) => {
+  if (req.body.settings) {
+    DB.settings = { ...DB.settings, ...req.body.settings };
+  }
+  if (req.body.seo) {
+    DB.seo = { ...DB.seo, ...req.body.seo };
+  }
+  saveDatabase();
+  logAction('admin@adspark.com', 'Update Settings', 'Modified core company settings or SEO attributes', req);
+  res.json({ settings: DB.settings, seo: DB.seo });
+});
+
+// 10. Dashboard Analytics Summary API
+app.get('/api/analytics', requireAdmin, (req, res) => {
+  // Synthesize modern metrics based on dynamic values
+  const synthesized = {
+    ...DB.analytics,
+    totalVisitors: DB.analytics.totalVisitors + DB.messages.length * 3, // slightly dynamic mapping
+    metaStats: {
+      totalProjects: DB.projects.length,
+      totalServices: DB.services.length,
+      totalBlogs: DB.blogs.length,
+      totalCareers: DB.careers.length,
+      totalInquiries: DB.messages.length,
+      totalApplicants: DB.applications.length,
+      totalSubscribers: DB.subscribers.length,
+      totalInvoices: DB.invoices.length,
+      totalSystemEmails: DB.systemEmails.length
+    }
+  };
+  res.json(synthesized);
+});
+
+// 11. Activity logs API
+app.get('/api/logs', requireAdmin, (req, res) => {
+  res.json(DB.logs);
+});
+
+// 12. Invoices Module API
+app.get('/api/invoices', requireAdmin, (req, res) => {
+  res.json(DB.invoices);
+});
+
+app.post('/api/invoices', requireAdmin, (req, res) => {
+  const newInvoice = {
+    ...req.body,
+    id: `inv-${Date.now()}`,
+    invoiceNumber: req.body.invoiceNumber || `INV-${new Date().getFullYear()}-${Math.floor(100 + Math.random() * 900)}`,
+    issuedAt: new Date().toISOString().split('T')[0]
+  };
+  DB.invoices.unshift(newInvoice);
+  saveDatabase();
+  logAction('admin@adspark.com', 'Create Invoice', `Generated Invoice Number: ${newInvoice.invoiceNumber}`, req);
+  res.status(201).json(newInvoice);
+});
+
+app.put('/api/invoices/:id', requireAdmin, (req, res) => {
+  const { id } = req.params;
+  const index = DB.invoices.findIndex(i => i.id === id);
+  if (index !== -1) {
+    DB.invoices[index] = { ...DB.invoices[index], ...req.body };
+    saveDatabase();
+    logAction('admin@adspark.com', 'Update Invoice', `Updated invoice details: ${DB.invoices[index].invoiceNumber}`, req);
+    res.json(DB.invoices[index]);
+  } else {
+    res.status(404).json({ error: 'Invoice not found' });
+  }
+});
+
+app.delete('/api/invoices/:id', requireAdmin, (req, res) => {
+  const { id } = req.params;
+  const filtered = DB.invoices.filter(i => i.id !== id);
+  if (filtered.length !== DB.invoices.length) {
+    DB.invoices = filtered;
+    saveDatabase();
+    logAction('admin@adspark.com', 'Delete Invoice', `Deleted invoice ID: ${id}`, req);
+    res.json({ success: true });
+  } else {
+    res.status(404).json({ error: 'Invoice not found' });
+  }
+});
+
+// 13. System Emails API (to inspect mocked SMTP)
+app.get('/api/system-emails', requireAdmin, (req, res) => {
+  res.json(DB.systemEmails);
+});
+
+// 14. Extra Modules: Team, Testimonials, Gallery, Partners APIs
+app.get('/api/team', (req, res) => res.json(DB.team));
+app.post('/api/team', requireAdmin, (req, res) => {
+  const member = { ...req.body, id: `tm-${Date.now()}` };
+  DB.team.push(member);
+  saveDatabase();
+  res.status(201).json(member);
+});
+app.put('/api/team/:id', requireAdmin, (req, res) => {
+  const index = DB.team.findIndex(t => t.id === req.params.id);
+  if (index !== -1) {
+    DB.team[index] = { ...DB.team[index], ...req.body };
+    saveDatabase();
+    res.json(DB.team[index]);
+  } else res.status(404).end();
+});
+app.delete('/api/team/:id', requireAdmin, (req, res) => {
+  DB.team = DB.team.filter(t => t.id !== req.params.id);
+  saveDatabase();
+  res.json({ success: true });
+});
+
+app.get('/api/testimonials', (req, res) => res.json(DB.testimonials));
+app.post('/api/testimonials', requireAdmin, (req, res) => {
+  const t = { ...req.body, id: `test-${Date.now()}` };
+  DB.testimonials.push(t);
+  saveDatabase();
+  res.status(201).json(t);
+});
+app.put('/api/testimonials/:id', requireAdmin, (req, res) => {
+  const index = DB.testimonials.findIndex(t => t.id === req.params.id);
+  if (index !== -1) {
+    DB.testimonials[index] = { ...DB.testimonials[index], ...req.body };
+    saveDatabase();
+    res.json(DB.testimonials[index]);
+  } else res.status(404).end();
+});
+app.delete('/api/testimonials/:id', requireAdmin, (req, res) => {
+  DB.testimonials = DB.testimonials.filter(t => t.id !== req.params.id);
+  saveDatabase();
+  res.json({ success: true });
+});
+
+app.get('/api/gallery', (req, res) => res.json(DB.gallery));
+app.post('/api/gallery', requireAdmin, (req, res) => {
+  const g = { ...req.body, id: `gal-${Date.now()}` };
+  DB.gallery.push(g);
+  saveDatabase();
+  res.status(201).json(g);
+});
+app.delete('/api/gallery/:id', requireAdmin, (req, res) => {
+  DB.gallery = DB.gallery.filter(g => g.id !== req.params.id);
+  saveDatabase();
+  res.json({ success: true });
+});
+
+app.get('/api/clients', (req, res) => res.json(DB.clients));
+app.post('/api/clients', requireAdmin, (req, res) => {
+  const c = { ...req.body, id: `cli-${Date.now()}` };
+  DB.clients.push(c);
+  saveDatabase();
+  res.status(201).json(c);
+});
+app.delete('/api/clients/:id', requireAdmin, (req, res) => {
+  DB.clients = DB.clients.filter(c => c.id !== req.params.id);
+  saveDatabase();
+  res.json({ success: true });
+});
+
+// AI Copilot for Blog & SEO Generation!
+// Uses server-side @google/genai module
+app.post('/api/copilot/generate', async (req, res) => {
+  const { prompt, type } = req.body;
+  if (!prompt) {
+    return res.status(400).json({ error: 'Prompt is required' });
+  }
+
+  try {
+    if (!ai) {
+      // Return beautiful, realistic simulated AI responses if Gemini Key is not set up
+      console.log('Gemini API key missing. Serving realistic simulated AI content.');
+      const simulatedText = type === 'blog'
+        ? `<h3>The Strategic Value of Modern IT Pipelines</h3><p>In the digital age, companies face intense pressure to accelerate software engineering delivery speeds. This article discusses the key pillars of microservice architectures, emphasizing the integration of robust telemetry monitors and continuous deployments.</p><p>By unifying API integrations inside a cohesive container network, operations can minimize latency spikes and guarantee steady database sync transactions, establishing high service durability.</p>`
+        : `AdSpark Technologies | Next-Gen Enterprise Software Engineering. Explore custom corporate software, fast websites, cloud deployments, and cognitive automation designed for scaling brands.`;
+      return res.json({ text: simulatedText, simulated: true });
+    }
+
+    // Modern SDK generate content call
+    const response = await ai.models.generateContent({
+      model: 'gemini-3.5-flash',
+      contents: prompt,
+      config: {
+        systemInstruction: type === 'blog'
+          ? 'You are a professional IT technology author. Write dynamic blog posts in simple, clean HTML format with tags like h3, p, pre, code. Keep it engaging and professional.'
+          : 'You are an SEO expert. Generate an optimized meta description under 155 characters that drives click-throughs.'
+      }
+    });
+
+    res.json({ text: response.text });
+  } catch (error: any) {
+    console.error('Gemini API execution failed:', error);
+    res.status(500).json({ error: error.message || 'Error occurred during AI generation' });
+  }
+});
+
+// 15. SEO Features XML Sitemaps & robots.txt
+app.get('/sitemap.xml', (req, res) => {
+  res.setHeader('Content-Type', 'application/xml');
+  const baseUrl = process.env.APP_URL || `http://localhost:${PORT}`;
+  let xml = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n`;
+  
+  // Static pages
+  const paths = ['', 'about', 'services', 'portfolio', 'pricing', 'team', 'careers', 'blog', 'faq', 'testimonials', 'gallery', 'clients', 'contact'];
+  paths.forEach(p => {
+    xml += `  <url>\n    <loc>${baseUrl}/${p}</loc>\n    <lastmod>2026-07-13</lastmod>\n    <changefreq>weekly</changefreq>\n    <priority>${p === '' ? '1.0' : '0.8'}</priority>\n  </url>\n`;
+  });
+
+  // Dynamic service details
+  DB.services.forEach(s => {
+    xml += `  <url>\n    <loc>${baseUrl}/services/${s.id}</loc>\n    <lastmod>2026-07-13</lastmod>\n    <changefreq>monthly</changefreq>\n    <priority>0.7</priority>\n  </url>\n`;
+  });
+
+  // Dynamic blog details
+  DB.blogs.forEach(b => {
+    xml += `  <url>\n    <loc>${baseUrl}/blog/${b.slug}</loc>\n    <lastmod>${b.publishedAt}</lastmod>\n    <changefreq>monthly</changefreq>\n    <priority>0.7</priority>\n  </url>\n`;
+  });
+
+  // Dynamic portfolio details
+  DB.projects.forEach(p => {
+    xml += `  <url>\n    <loc>${baseUrl}/portfolio/${p.id}</loc>\n    <lastmod>${p.completionDate}</lastmod>\n    <changefreq>monthly</changefreq>\n    <priority>0.7</priority>\n  </url>\n`;
+  });
+
+  xml += `</urlset>`;
+  res.send(xml);
+});
+
+app.get('/robots.txt', (req, res) => {
+  res.setHeader('Content-Type', 'text/plain');
+  const baseUrl = process.env.APP_URL || `http://localhost:${PORT}`;
+  res.send(`User-agent: *\nDisallow: /api/\nDisallow: /admin\n\nSitemap: ${baseUrl}/sitemap.xml`);
+});
+
+// Serve local generated images statically
+app.use('/src/assets/images', express.static(path.join(process.cwd(), 'src/assets/images')));
+
+// Vite server development middleware setup
+async function startServer() {
+  if (process.env.NODE_ENV !== 'production') {
+    const vite = await createViteServer({
+      server: { middlewareMode: true },
+      appType: 'spa',
+    });
+    app.use(vite.middlewares);
+  } else {
+    // Serve static frontend files in production
+    const distPath = path.join(process.cwd(), 'dist');
+    app.use(express.static(distPath));
+    app.get('*', (req, res) => {
+      res.sendFile(path.join(distPath, 'index.html'));
+    });
+  }
+
+  app.listen(PORT, '0.0.0.0', () => {
+    console.log(`[AdSpark Corporate CMS] Server listening on http://localhost:${PORT} in ${process.env.NODE_ENV || 'development'} mode.`);
+  });
+}
+
+startServer();
