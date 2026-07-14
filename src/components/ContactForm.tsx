@@ -319,14 +319,14 @@ export const ContactForm: React.FC<ContactFormProps> = ({ settings, onRefreshDat
               type="email"
               value={newsEmail}
               onChange={(e) => setNewsEmail(e.target.value)}
-              className="px-4 py-3 rounded-xl border border-slate-800 bg-slate-900 text-white text-sm focus:outline-none focus:border-brand-blue flex-1 placeholder:text-slate-500 font-medium"
+              className="px-4 py-3 rounded-xl border border-slate-800 bg-slate-900 text-white text-sm focus:outline-none focus:border-brand-blue flex-1 placeholder:text-slate-500 font-medium w-full"
               placeholder="Enter your executive email"
               required
             />
             <button
               id="submit-newsletter-btn"
               type="submit"
-              className="py-3 px-6 rounded-xl bg-brand-blue text-white font-bold text-sm hover:bg-opacity-90 transition-all cursor-pointer whitespace-nowrap"
+              className="py-3 px-6 rounded-xl bg-brand-blue text-white font-bold text-sm hover:bg-opacity-90 transition-all cursor-pointer whitespace-nowrap w-full sm:w-auto"
             >
               Subscribe Now
             </button>

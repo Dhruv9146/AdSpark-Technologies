@@ -191,3 +191,14 @@ export interface ActivityLog {
   ipAddress: string;
   timestamp: string;
 }
+
+export interface AdminUser {
+  id: string;
+  name: string;
+  email: string;
+  role: 'Super Admin' | 'Admin' | 'Editor' | 'Manager';
+  status: 'active' | 'disabled';
+  profilePhoto?: string;
+  lastLoginAt?: string;
+  lastLoginIp?: string;
+}

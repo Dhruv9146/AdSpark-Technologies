@@ -15,7 +15,8 @@ import {
   SEOConfig,
   WebsiteSettings,
   AnalyticsSummary,
-  ActivityLog
+  ActivityLog,
+  AdminUser
 } from './types';
 
 import {
@@ -34,7 +35,8 @@ import {
   initialLogs,
   initialApplications,
   initialMessages,
-  initialSubscribers
+  initialSubscribers,
+  initialAdmins
 } from './data';
 
 // Import modular layouts
@@ -59,7 +61,8 @@ const fallbackData = {
   seo: defaultSEO,
   settings: defaultSettings,
   analytics: defaultAnalytics,
-  logs: initialLogs
+  logs: initialLogs,
+  admins: initialAdmins
 };
 
 export default function App() {
@@ -81,6 +84,7 @@ export default function App() {
     settings: WebsiteSettings;
     analytics: AnalyticsSummary;
     logs: ActivityLog[];
+    admins: AdminUser[];
   } | null>(null);
 
   // Active client view tab sitemap
@@ -88,7 +92,7 @@ export default function App() {
 
   // Admin Session States
   const [adminToken, setAdminToken] = useState<string | null>(
-    localStorage.getItem('adspark_admin_token')
+    localStorage.getItem('adspark_admin_token') || sessionStorage.getItem('adspark_admin_token')
   );
   const [showLoginModal, setShowLoginModal] = useState<boolean>(false);
   const [isAdminView, setIsAdminView] = useState<boolean>(false);
@@ -155,15 +159,30 @@ export default function App() {
   }, [data]);
 
   const handleLoginSuccess = (token: string) => {
-    localStorage.setItem('adspark_admin_token', token);
     setAdminToken(token);
     setShowLoginModal(false);
     setIsAdminView(true);
     fetchDatabase();
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    if (adminToken) {
+      try {
+        await fetch('/api/auth/logout', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${adminToken}`,
+            'Content-Type': 'application/json'
+          }
+        });
+      } catch (err) {
+        console.error('Logout API request error:', err);
+      }
+    }
     localStorage.removeItem('adspark_admin_token');
+    localStorage.removeItem('adspark_admin_user');
+    sessionStorage.removeItem('adspark_admin_token');
+    sessionStorage.removeItem('adspark_admin_user');
     setAdminToken(null);
     setIsAdminView(false);
     fetchDatabase();
@@ -203,6 +222,7 @@ export default function App() {
         settings={data.settings}
         analytics={data.analytics}
         logs={data.logs}
+        admins={data.admins}
         token={adminToken}
         onLogout={handleLogout}
         onRefreshData={fetchDatabase}

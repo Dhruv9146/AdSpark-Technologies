@@ -14,12 +14,49 @@ class DatabaseSeeder extends Seeder
 {
     public function run(): void
     {
-        // 1. Seed Secure Admin Credentials
+        // 1. Seed Secure Admin Credentials with Roles
+        
+        // Super Admin (Manage everything)
         User::updateOrCreate(
             ['email' => 'adsparktechnologies01@gmail.com'],
             [
-                'name' => 'AdSpark Administrator',
+                'name' => 'Dhruv Marathe',
                 'password' => Hash::make('AdSpark@2026'),
+                'role' => 'Super Admin',
+                'status' => 'active',
+            ]
+        );
+
+        // Admin (Can manage CMS, except admin accounts editing/creation)
+        User::updateOrCreate(
+            ['email' => 'admin@adsparktech.com'],
+            [
+                'name' => 'John Admin',
+                'password' => Hash::make('Password@2026'),
+                'role' => 'Admin',
+                'status' => 'active',
+            ]
+        );
+
+        // Editor (Can edit CMS content, but not settings or admins)
+        User::updateOrCreate(
+            ['email' => 'editor@adsparktech.com'],
+            [
+                'name' => 'Sarah Editor',
+                'password' => Hash::make('Password@2026'),
+                'role' => 'Editor',
+                'status' => 'active',
+            ]
+        );
+
+        // Manager (Can view metrics and manage inquiries)
+        User::updateOrCreate(
+            ['email' => 'manager@adsparktech.com'],
+            [
+                'name' => 'Alex Manager',
+                'password' => Hash::make('Password@2026'),
+                'role' => 'Manager',
+                'status' => 'active',
             ]
         );
 
@@ -43,7 +80,9 @@ class DatabaseSeeder extends Seeder
             'address' => '100 Silicon Way, Suite 400, San Francisco, CA',
             'meta_title' => 'AdSpark Technologies | Enterprise Systems & Custom Software Solutions',
             'meta_description' => 'AdSpark Technologies provides robust enterprise cloud clusters, AI workflow engines, and highly secure custom systems architecture for global corporations.',
-            'meta_keywords' => 'custom software, systems integration, enterprise automation, cloud architecture, AI consulting'
+            'meta_keywords' => 'custom software, systems integration, enterprise automation, cloud architecture, AI consulting',
+            'website_status' => 'online', // online, offline
+            'footer_text' => '© 2026 AdSpark Technologies. All rights reserved. Enterprise-grade modern systems engineering.'
         ];
 
         foreach ($settings as $key => $value) {

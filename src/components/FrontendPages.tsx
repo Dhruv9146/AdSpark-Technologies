@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Service,
   Project,
@@ -49,6 +49,19 @@ export const FrontendPages: React.FC<FrontendPagesProps> = ({
 }) => {
   // Navigation states
   const [selectedServiceId, setSelectedServiceId] = useState<string | null>(null);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState<boolean>(false);
+
+  // Toggle scroll lock on body when mobile menu is open
+  useEffect(() => {
+    if (mobileMenuOpen) {
+      document.body.classList.add('no-scroll');
+    } else {
+      document.body.classList.remove('no-scroll');
+    }
+    return () => {
+      document.body.classList.remove('no-scroll');
+    };
+  }, [mobileMenuOpen]);
 
   // Home Hero Slider state
   const [activeSlide, setActiveSlide] = useState<number>(0);
@@ -106,20 +119,23 @@ export const FrontendPages: React.FC<FrontendPagesProps> = ({
           
           {/* Logo */}
           <div
-            onClick={() => handleCtaClick('home')}
-            className="flex items-center gap-2 cursor-pointer group"
+            onClick={() => {
+              handleCtaClick('home');
+              setMobileMenuOpen(false);
+            }}
+            className="flex items-center gap-2 cursor-pointer group shrink-0"
           >
-            <div className="p-2 bg-brand-blue text-white rounded-xl shadow-md group-hover:scale-105 transition-transform">
-              <Lucide.Sparkles size={20} />
+            <div className="p-1.5 sm:p-2 bg-brand-blue text-white rounded-xl shadow-md group-hover:scale-105 transition-transform">
+              <Lucide.Sparkles size={18} className="sm:w-5 sm:h-5" />
             </div>
-            <span className="text-xl font-display font-bold text-slate-900 tracking-tight">
+            <span className="text-lg sm:text-xl font-display font-bold text-slate-900 tracking-tight select-none">
               {settings.logoText || 'AdSpark'}
               <span className="text-brand-blue">.</span>
             </span>
           </div>
 
-          {/* Desktop Nav menu */}
-          <nav className="hidden lg:flex items-center gap-1">
+          {/* Desktop Nav menu (Shows only >= 992px) */}
+          <nav className="nav-desktop-only items-center gap-1">
             {[
               { label: 'Home', tab: 'home' },
               { label: 'About', tab: 'about' },
@@ -142,23 +158,131 @@ export const FrontendPages: React.FC<FrontendPagesProps> = ({
           </nav>
 
           {/* CTA & Admin Link */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
             <button
               id="goto-admin-btn"
               onClick={onOpenAdmin}
-              className="px-3.5 py-1.5 rounded-xl border border-slate-200 text-slate-700 font-bold text-xs hover:bg-slate-50 transition-all flex items-center gap-1.5 cursor-pointer"
+              className="nav-desktop-only px-3.5 py-1.5 rounded-xl border border-slate-200 text-slate-700 font-bold text-xs hover:bg-slate-50 transition-all items-center gap-1.5 cursor-pointer animate-fade-in"
             >
               <Lucide.LockKeyhole size={14} className="text-brand-blue" />
               Admin Access
             </button>
             <button
               id="proposal-header-cta-btn"
-              onClick={() => handleCtaClick('contact')}
-              className="px-4 py-1.5 rounded-xl bg-brand-blue text-white font-bold text-xs hover:bg-opacity-95 shadow transition-all cursor-pointer flex items-center gap-1"
+              onClick={() => {
+                handleCtaClick('contact');
+                setMobileMenuOpen(false);
+              }}
+              className="px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl bg-brand-blue text-white font-bold text-[11px] sm:text-xs hover:bg-opacity-95 shadow transition-all cursor-pointer flex items-center gap-1 shrink-0 select-none"
             >
               <Lucide.FileText size={13} />
-              Get Proposal
+              <span className="hidden sm:inline">Get Proposal</span>
+              <span className="sm:hidden">Proposal</span>
             </button>
+
+            {/* Mobile Hamburger menu trigger (Shows only < 992px) */}
+            <button
+              id="mobile-hamburger-btn"
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              className="nav-mobile-only p-2 rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-50 transition-all cursor-pointer items-center justify-center shrink-0"
+              aria-label="Toggle navigation menu"
+            >
+              {mobileMenuOpen ? <Lucide.X size={18} /> : <Lucide.Menu size={18} />}
+            </button>
+          </div>
+        </div>
+
+        {/* Dark Backdrop Overlay */}
+        <div 
+          className={`nav-mobile-only fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-40 transition-opacity duration-300 cursor-pointer ${
+            mobileMenuOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
+          }`}
+          onClick={() => setMobileMenuOpen(false)}
+        />
+
+        {/* Slide-in Offcanvas Menu (Covers 80% of width on mobile, max 340px) */}
+        <div 
+          className={`nav-mobile-only-block fixed inset-y-0 right-0 w-[80%] max-w-[340px] bg-white z-50 shadow-2xl flex flex-col justify-between transition-transform duration-300 ease-in-out border-l border-slate-100 ${
+            mobileMenuOpen ? 'translate-x-0' : 'translate-x-full'
+          }`}
+        >
+          {/* Offcanvas Header */}
+          <div className="p-4 border-b border-slate-100 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="p-1.5 bg-brand-blue text-white rounded-xl">
+                <Lucide.Sparkles size={16} />
+              </div>
+              <span className="text-base font-display font-bold text-slate-900 tracking-tight">
+                {settings.logoText || 'AdSpark'}
+              </span>
+            </div>
+            <button
+              onClick={() => setMobileMenuOpen(false)}
+              className="p-2 rounded-xl border border-slate-100 text-slate-500 hover:bg-slate-50 transition-all cursor-pointer"
+              aria-label="Close menu"
+            >
+              <Lucide.X size={18} />
+            </button>
+          </div>
+
+          {/* Offcanvas Body */}
+          <div className="flex-1 p-5 overflow-y-auto space-y-6">
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block border-b border-slate-100 pb-2">
+              Navigation Directory
+            </span>
+            <nav className="flex flex-col gap-1.5">
+              {[
+                { label: 'Home', tab: 'home', icon: Lucide.Home },
+                { label: 'About', tab: 'about', icon: Lucide.Info },
+                { label: 'Services', tab: 'services', icon: Lucide.Settings },
+                { label: 'Contact', tab: 'contact', icon: Lucide.Mail }
+              ].map(item => {
+                const Icon = item.icon;
+                return (
+                  <button
+                    key={item.tab}
+                    id={`mobile-nav-link-${item.tab}`}
+                    onClick={() => {
+                      handleCtaClick(item.tab);
+                      setMobileMenuOpen(false);
+                    }}
+                    className={`px-4 py-3 rounded-xl text-sm font-bold transition-all text-left flex items-center gap-3 cursor-pointer ${
+                      activeTab === item.tab
+                        ? 'text-brand-blue bg-blue-50/70'
+                        : 'text-slate-600 hover:text-brand-blue hover:bg-slate-50'
+                    }`}
+                  >
+                    <Icon size={18} className={activeTab === item.tab ? 'text-brand-blue' : 'text-slate-400'} />
+                    {item.label}
+                  </button>
+                );
+              })}
+            </nav>
+
+            <div className="pt-4 border-t border-slate-100">
+              <button
+                id="mobile-goto-admin-btn"
+                onClick={() => {
+                  onOpenAdmin();
+                  setMobileMenuOpen(false);
+                }}
+                className="w-full px-4 py-3 rounded-xl border border-slate-200 text-slate-700 font-bold text-xs hover:bg-slate-50 transition-all flex items-center justify-center gap-2 cursor-pointer shadow-sm"
+              >
+                <Lucide.LockKeyhole size={14} className="text-brand-blue" />
+                Admin Access Panel
+              </button>
+            </div>
+          </div>
+
+          {/* Offcanvas Footer */}
+          <div className="p-5 bg-slate-50 border-t border-slate-100 flex flex-col items-center gap-2 shrink-0">
+            <div className="flex items-center gap-1.5 text-slate-500">
+              <Lucide.Sparkles size={14} className="text-brand-blue" />
+              <span className="text-[11px] font-bold uppercase tracking-wider">{settings.companyName}</span>
+            </div>
+            <p className="text-[10px] text-slate-400 text-center font-normal">
+              Engineering custom high-trust architectures
+            </p>
           </div>
         </div>
       </header>
@@ -171,28 +295,28 @@ export const FrontendPages: React.FC<FrontendPagesProps> = ({
           <div id="home-view" className="space-y-16 pb-16">
             
             {/* HERO SLIDER SECTION */}
-            <section className="relative h-[480px] bg-slate-950 bg-gradient-to-br from-slate-950 via-blue-950 to-slate-900 overflow-hidden">
+            <section className="relative min-h-[480px] lg:h-[480px] py-12 lg:py-0 bg-slate-950 bg-gradient-to-br from-slate-950 via-blue-950 to-slate-900 overflow-hidden flex flex-col justify-center">
               <div className="absolute inset-0 opacity-40">
                 <div className="absolute top-10 left-10 w-72 h-72 rounded-full bg-blue-500/20 blur-3xl"></div>
                 <div className="absolute bottom-10 right-10 w-96 h-96 rounded-full bg-indigo-500/10 blur-3xl"></div>
               </div>
 
-              <div className="relative z-10 max-w-7xl mx-auto px-4 h-full flex flex-col justify-center">
-                <div className="max-w-2xl space-y-6">
+              <div className="relative z-10 max-w-7xl mx-auto px-4 w-full flex flex-col justify-center">
+                <div className="max-w-2xl space-y-6 text-center lg:text-left flex flex-col items-center lg:items-start">
                   <span className="text-xs font-bold text-brand-blue uppercase tracking-widest bg-blue-950/50 border border-brand-blue/30 px-3 py-1 rounded-full w-fit">
                     AdSpark Technologies
                   </span>
-                  <h1 className="text-3xl md:text-5xl font-display font-bold text-white tracking-tight leading-tight transition-all duration-500">
+                  <h1 className="text-2xl sm:text-3xl md:text-5xl font-display font-bold text-white tracking-tight leading-tight transition-all duration-500">
                     {slides[activeSlide].title}
                   </h1>
-                  <p className="text-slate-300 text-sm md:text-base leading-relaxed">
+                  <p className="text-slate-300 text-xs sm:text-sm md:text-base leading-relaxed">
                     {slides[activeSlide].desc}
                   </p>
-                  <div className="flex items-center gap-4">
+                  <div className="flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto">
                     <button
                       id="hero-main-cta-btn"
                       onClick={() => handleCtaClick(slides[activeSlide].tab)}
-                      className="px-6 py-3 rounded-xl bg-brand-blue text-white font-bold text-sm hover:bg-opacity-95 shadow-lg shadow-blue-500/20 transition-all cursor-pointer flex items-center gap-2"
+                      className="w-full sm:w-auto px-6 py-3 rounded-xl bg-brand-blue text-white font-bold text-sm hover:bg-opacity-95 shadow-lg shadow-blue-500/20 transition-all cursor-pointer flex items-center justify-center gap-2"
                     >
                       {slides[activeSlide].cta}
                       <Lucide.ArrowRight size={16} />
@@ -200,7 +324,7 @@ export const FrontendPages: React.FC<FrontendPagesProps> = ({
                     <button
                       id="hero-service-cta-btn"
                       onClick={() => handleCtaClick('services')}
-                      className="px-5 py-3 rounded-xl bg-white/10 text-white font-bold text-sm hover:bg-white/20 transition-all cursor-pointer border border-white/15"
+                      className="w-full sm:w-auto px-5 py-3 rounded-xl bg-white/10 text-white font-bold text-sm hover:bg-white/20 transition-all cursor-pointer border border-white/15 text-center"
                     >
                       Our Services
                     </button>
@@ -209,7 +333,7 @@ export const FrontendPages: React.FC<FrontendPagesProps> = ({
               </div>
 
               {/* Slider Controls */}
-              <div className="absolute bottom-6 right-6 flex items-center gap-2 z-15">
+              <div className="absolute bottom-4 sm:bottom-6 left-1/2 -translate-x-1/2 sm:left-auto sm:translate-x-0 sm:right-6 flex items-center gap-2 z-15">
                 {slides.map((_, idx) => (
                   <button
                     key={idx}
@@ -231,11 +355,11 @@ export const FrontendPages: React.FC<FrontendPagesProps> = ({
                   { value: '45+', label: 'IT Professionals Pod' },
                   { value: '24/7', label: 'Continuous Support' }
                 ].map((stat, idx) => (
-                  <div key={idx} className="space-y-1 border-r last:border-0 border-slate-100">
-                    <span className="text-3xl md:text-4xl font-display font-bold text-brand-blue block">
+                  <div key={idx} className="space-y-1 border-r even:border-r-0 md:even:border-r border-slate-100 md:last:border-r-0">
+                    <span className="text-2xl md:text-4xl font-display font-bold text-brand-blue block">
                       {stat.value}
                     </span>
-                    <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
+                    <span className="text-[10px] md:text-xs font-semibold text-slate-500 uppercase tracking-wide">
                       {stat.label}
                     </span>
                   </div>
@@ -465,7 +589,7 @@ export const FrontendPages: React.FC<FrontendPagesProps> = ({
 
             {/* CONTACT & FAQ MODULE REDIRECT/INTEGRATION */}
             <section className="max-w-7xl mx-auto px-4 bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden grid md:grid-cols-12">
-              <div className="md:col-span-5 bg-slate-50 border-r border-slate-100 text-slate-800 p-8 md:p-12 space-y-6 flex flex-col justify-between">
+              <div className="md:col-span-5 bg-slate-50 border-b md:border-b-0 md:border-r border-slate-100 text-slate-800 p-6 md:p-12 space-y-6 flex flex-col justify-between">
                 <div>
                   <span className="text-xs font-bold text-brand-blue uppercase tracking-widest bg-blue-50 px-3 py-1 rounded-full border border-blue-100 w-fit block">
                     Contact Coordinates
@@ -625,33 +749,33 @@ export const FrontendPages: React.FC<FrontendPagesProps> = ({
 
       {/* 3. Footer Section with Sitemap & Map coordinates */}
       <footer className="bg-brand-dark text-slate-400 border-t border-slate-800 pt-12 pb-6">
-        <div className="max-w-7xl mx-auto px-4 grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-8">
+        <div className="max-w-7xl mx-auto px-4 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-8 text-center sm:text-left">
           
           {/* Logo brand info */}
-          <div className="col-span-2 space-y-4">
+          <div className="col-span-1 sm:col-span-2 space-y-4 flex flex-col items-center sm:items-start">
             <div className="flex items-center gap-2 text-white">
               <div className="p-2 bg-brand-blue text-white rounded-xl">
                 <Lucide.Sparkles size={18} />
               </div>
               <span className="text-lg font-display font-bold tracking-tight">{settings.companyName}</span>
             </div>
-            <p className="text-xs text-slate-500 max-w-sm leading-relaxed font-normal">
+            <p className="text-xs text-slate-500 max-w-sm leading-relaxed font-normal text-center sm:text-left">
               A leading digital engineering company designing high-throughput corporate softwares, responsive e-commerce storefronts, and automated Large Language models.
             </p>
-            <span className="text-xs text-slate-600 block pt-1">
+            <span className="text-xs text-slate-600 block pt-1 text-center sm:text-left">
               © {new Date().getFullYear()} AdSpark Technologies. All rights reserved.
             </span>
           </div>
 
           {/* Sitemap links column 1 */}
           <div className="space-y-3">
-            <h4 className="font-display font-bold text-white text-xs uppercase tracking-wider">Company Directory</h4>
-            <ul className="space-y-1.5 text-xs">
+            <h4 className="font-display font-bold text-white text-xs uppercase tracking-wider text-center sm:text-left">Company Directory</h4>
+            <ul className="space-y-1.5 text-xs flex flex-col items-center sm:items-start">
               {['home', 'about', 'contact'].map(tab => (
                 <li key={tab}>
                   <button
                     onClick={() => handleCtaClick(tab)}
-                    className="hover:text-brand-blue cursor-pointer capitalize"
+                    className="hover:text-brand-blue cursor-pointer capitalize text-center sm:text-left"
                   >
                     {tab === 'contact' ? 'Contact' : tab} page
                   </button>
@@ -662,13 +786,13 @@ export const FrontendPages: React.FC<FrontendPagesProps> = ({
 
           {/* Sitemap links column 2 */}
           <div className="space-y-3">
-            <h4 className="font-display font-bold text-white text-xs uppercase tracking-wider">Services & Insights</h4>
-            <ul className="space-y-1.5 text-xs">
+            <h4 className="font-display font-bold text-white text-xs uppercase tracking-wider text-center sm:text-left">Services & Insights</h4>
+            <ul className="space-y-1.5 text-xs flex flex-col items-center sm:items-start">
               {['services'].map(tab => (
                 <li key={tab}>
                   <button
                     onClick={() => handleCtaClick(tab)}
-                    className="hover:text-brand-blue cursor-pointer capitalize"
+                    className="hover:text-brand-blue cursor-pointer capitalize text-center sm:text-left"
                   >
                     Our {tab}
                   </button>
@@ -679,25 +803,25 @@ export const FrontendPages: React.FC<FrontendPagesProps> = ({
 
           {/* Sitemap links column 3 */}
           <div className="space-y-3">
-            <h4 className="font-display font-bold text-white text-xs uppercase tracking-wider">SLA Protections</h4>
-            <ul className="space-y-1.5 text-xs">
+            <h4 className="font-display font-bold text-white text-xs uppercase tracking-wider text-center sm:text-left">SLA Protections</h4>
+            <ul className="space-y-1.5 text-xs flex flex-col items-center sm:items-start">
               <li>
-                <button onClick={() => handleCtaClick('privacy')} className="hover:text-brand-blue cursor-pointer">
+                <button onClick={() => handleCtaClick('privacy')} className="hover:text-brand-blue cursor-pointer text-center sm:text-left">
                   Privacy Policy
                 </button>
               </li>
               <li>
-                <button onClick={() => handleCtaClick('terms')} className="hover:text-brand-blue cursor-pointer">
+                <button onClick={() => handleCtaClick('terms')} className="hover:text-brand-blue cursor-pointer text-center sm:text-left">
                   Terms of Service
                 </button>
               </li>
               <li>
-                <a href="/sitemap.xml" target="_blank" className="hover:text-brand-blue">
+                <a href="/sitemap.xml" target="_blank" className="hover:text-brand-blue text-center sm:text-left">
                   XML Sitemap
                 </a>
               </li>
               <li>
-                <a href="/robots.txt" target="_blank" className="hover:text-brand-blue">
+                <a href="/robots.txt" target="_blank" className="hover:text-brand-blue text-center sm:text-left">
                   Robots Schema
                 </a>
               </li>
@@ -707,8 +831,8 @@ export const FrontendPages: React.FC<FrontendPagesProps> = ({
         </div>
 
         <div className="max-w-7xl mx-auto px-4 border-t border-slate-800 mt-10 pt-6 flex flex-col sm:flex-row justify-between items-center gap-4 text-xs">
-          <span className="text-slate-600 font-semibold uppercase tracking-wider">Powered by Node.js Full-Stack Workspace</span>
-          <div className="flex gap-4 opacity-50">
+          <span className="text-slate-600 font-semibold uppercase tracking-wider text-center sm:text-left">Powered by Node.js Full-Stack Workspace</span>
+          <div className="flex gap-4 opacity-50 justify-center sm:justify-start">
             {settings.socialLinks.facebook && <a href={settings.socialLinks.facebook} className="text-white hover:text-brand-blue"><Lucide.Facebook size={16} /></a>}
             {settings.socialLinks.twitter && <a href={settings.socialLinks.twitter} className="text-white hover:text-brand-blue"><Lucide.Twitter size={16} /></a>}
             {settings.socialLinks.linkedin && <a href={settings.socialLinks.linkedin} className="text-white hover:text-brand-blue"><Lucide.Linkedin size={16} /></a>}

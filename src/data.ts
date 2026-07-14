@@ -14,7 +14,8 @@ import {
   ActivityLog,
   CareerApplication,
   ContactMessage,
-  Subscriber
+  Subscriber,
+  AdminUser
 } from './types';
 
 export const seedServices: Service[] = [
@@ -250,3 +251,43 @@ export const initialMessages: ContactMessage[] = [
 export const initialSubscribers: Subscriber[] = [
   { id: 'sub-1', email: 'newsletter@partner.io', subscribedAt: '2026-07-11 12:00:00', status: 'Active' }
 ];
+
+export const initialAdmins: AdminUser[] = [
+  {
+    id: 'usr-1',
+    name: 'Dhruv Marathe',
+    email: 'adsparktechnologies01@gmail.com',
+    role: 'Super Admin',
+    status: 'active',
+    lastLoginAt: '2026-07-14 04:00:00',
+    lastLoginIp: '127.0.0.1'
+  },
+  {
+    id: 'usr-2',
+    name: 'John Admin',
+    email: 'admin@adsparktech.com',
+    role: 'Admin',
+    status: 'active',
+    lastLoginAt: '2026-07-13 15:30:00',
+    lastLoginIp: '192.168.1.100'
+  },
+  {
+    id: 'usr-3',
+    name: 'Sarah Editor',
+    email: 'editor@adsparktech.com',
+    role: 'Editor',
+    status: 'active',
+    lastLoginAt: '2026-07-13 11:20:00',
+    lastLoginIp: '192.168.1.102'
+  },
+  {
+    id: 'usr-4',
+    name: 'Alex Manager',
+    email: 'manager@adsparktech.com',
+    role: 'Manager',
+    status: 'active',
+    lastLoginAt: '2026-07-12 09:45:00',
+    lastLoginIp: '192.168.1.103'
+  }
+];
+

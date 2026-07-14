@@ -15,5 +15,7 @@ class Enquiry extends Model
         'subject',
         'message',
         'status',
+        'reply_text',
+        'replied_at',
     ];
 }

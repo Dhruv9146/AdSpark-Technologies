@@ -7,75 +7,146 @@ interface AdminLoginProps {
 }
 
 export const AdminLogin: React.FC<AdminLoginProps> = ({ onLoginSuccess, onClose }) => {
-  const [email, setEmail] = useState<string>('adsparktechnologies01@gmail.com');
-  const [password, setPassword] = useState<string>('AdSpark@2026');
+  const [email, setEmail] = useState<string>('');
+  const [password, setPassword] = useState<string>('');
   const [authMode, setAuthMode] = useState<'login' | 'reset' | 'verify'>('login');
+  const [rememberMe, setRememberMe] = useState<boolean>(false);
   
   // Feedback states
   const [errorText, setErrorText] = useState<string>('');
   const [successText, setSuccessText] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(false);
 
-  // Verification states
+  // Verification & reset password states
   const [verifyCode, setVerifyCode] = useState<string>('');
+  const [newPassword, setNewPassword] = useState<string>('');
 
-  const handleLoginSubmit = (e: React.FormEvent) => {
+  const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorText('');
     setSuccessText('');
+
+    if (!email.trim() || !password.trim()) {
+      setErrorText('Invalid email or password');
+      return;
+    }
+
     setLoading(true);
 
-    setTimeout(() => {
-      if (email === 'adsparktechnologies01@gmail.com' && password === 'AdSpark@2026') {
-        setSuccessText('Sign in authentication validated! Accessing dashboard...');
-        setTimeout(() => {
-          onLoginSuccess('static-session-token-2026');
-        }, 1000);
-      } else {
-        setErrorText('Invalid Email or Password');
-        setLoading(false);
+    try {
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ email, password })
+      });
+
+      const result = await res.json();
+
+      if (!res.ok) {
+        throw new Error(result.error || 'Invalid email or password');
       }
-    }, 600);
+
+      setSuccessText('Sign in authentication validated! Accessing dashboard...');
+      
+      // Store token depending on Remember Me
+      if (rememberMe) {
+        localStorage.setItem('adspark_admin_token', result.token);
+        localStorage.setItem('adspark_admin_user', JSON.stringify(result.user));
+      } else {
+        sessionStorage.setItem('adspark_admin_token', result.token);
+        sessionStorage.setItem('adspark_admin_user', JSON.stringify(result.user));
+      }
+
+      setTimeout(() => {
+        onLoginSuccess(result.token);
+      }, 1000);
+    } catch (err: any) {
+      setErrorText(err.message || 'Invalid email or password');
+      setLoading(false);
+    }
   };
 
-  const handleResetSubmit = (e: React.FormEvent) => {
+  const handleResetSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorText('');
     setSuccessText('');
+
+    if (!email.trim()) {
+      setErrorText('Please enter your email address');
+      return;
+    }
+
     setLoading(true);
 
-    setTimeout(() => {
-      if (email === 'adsparktechnologies01@gmail.com') {
-        setSuccessText('Password recovery link sent successfully to adsparktechnologies01@gmail.com.');
-        setTimeout(() => {
-          setAuthMode('login');
-          setSuccessText('');
-        }, 3000);
-      } else {
-        setErrorText('Invalid Email Address');
+    try {
+      const res = await fetch('/api/auth/forgot-password', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ email })
+      });
+
+      const result = await res.json();
+
+      if (!res.ok) {
+        throw new Error(result.error || 'An error occurred. Please try again.');
       }
+
+      setSuccessText(result.message || 'If that email address exists in our system, we have dispatched a secure recovery code.');
+      setTimeout(() => {
+        setAuthMode('verify');
+        setSuccessText('');
+      }, 3000);
+    } catch (err: any) {
+      setErrorText(err.message || 'An error occurred. Please try again.');
+    } finally {
       setLoading(false);
-    }, 500);
+    }
   };
 
-  const handleVerifySubmit = (e: React.FormEvent) => {
+  const handleVerifySubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorText('');
     setSuccessText('');
+
+    if (!email.trim() || !verifyCode.trim() || !newPassword.trim()) {
+      setErrorText('Please fill in all verification and password fields');
+      return;
+    }
+
     setLoading(true);
 
-    setTimeout(() => {
-      if (email === 'adsparktechnologies01@gmail.com' && verifyCode === '2026') {
-        setSuccessText('Email verification approved!');
-        setTimeout(() => {
-          setAuthMode('login');
-          setSuccessText('');
-        }, 2000);
-      } else {
-        setErrorText('Invalid Email or Verification Code. (Use code: 2026)');
+    try {
+      const res = await fetch('/api/auth/reset-password', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ email, code: verifyCode, newPassword })
+      });
+
+      const result = await res.json();
+
+      if (!res.ok) {
+        throw new Error(result.error || 'Invalid or expired verification code');
       }
+
+      setSuccessText('Password reset successfully! Returning to login...');
+      setTimeout(() => {
+        setAuthMode('login');
+        setSuccessText('');
+        setPassword('');
+        setNewPassword('');
+        setVerifyCode('');
+      }, 2500);
+    } catch (err: any) {
+      setErrorText(err.message || 'Invalid or expired verification code');
+    } finally {
       setLoading(false);
-    }, 500);
+    }
   };
 
   return (
@@ -110,7 +181,7 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ onLoginSuccess, onClose 
 
         {/* MODE: LOGIN FORM */}
         {authMode === 'login' && (
-          <form id="admin-login-form" onSubmit={handleLoginSubmit} className="space-y-4 text-xs">
+          <form id="admin-login-form" onSubmit={handleLoginSubmit} autoComplete="off" className="space-y-4 text-xs">
             <div className="space-y-1">
               <label className="text-slate-600 font-semibold uppercase tracking-wider block">Admin Email Address</label>
               <div className="relative">
@@ -120,7 +191,8 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ onLoginSuccess, onClose 
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-900 focus:outline-none focus:border-brand-blue text-xs"
-                  placeholder="e.g. adsparktechnologies01@gmail.com"
+                  placeholder="Email Address"
+                  autoComplete="off"
                   required
                 />
               </div>
@@ -145,9 +217,23 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ onLoginSuccess, onClose 
                   onChange={(e) => setPassword(e.target.value)}
                   className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-900 focus:outline-none focus:border-brand-blue text-xs"
                   placeholder="Password"
+                  autoComplete="off"
                   required
                 />
               </div>
+            </div>
+
+            <div className="flex items-center gap-2 py-1 select-none">
+              <input
+                id="remember-me-checkbox"
+                type="checkbox"
+                checked={rememberMe}
+                onChange={(e) => setRememberMe(e.target.checked)}
+                className="w-4 h-4 rounded border-slate-300 text-brand-blue focus:ring-brand-blue bg-slate-50 cursor-pointer"
+              />
+              <label htmlFor="remember-me-checkbox" className="text-slate-500 font-semibold uppercase tracking-wider cursor-pointer text-[10px]">
+                Remember Me
+              </label>
             </div>
 
             {errorText && (
@@ -186,7 +272,7 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ onLoginSuccess, onClose 
 
         {/* MODE: PASSWORD RESET */}
         {authMode === 'reset' && (
-          <form id="admin-reset-form" onSubmit={handleResetSubmit} className="space-y-4 text-xs">
+          <form id="admin-reset-form" onSubmit={handleResetSubmit} autoComplete="off" className="space-y-4 text-xs">
             <div className="space-y-1">
               <label className="text-slate-600 font-semibold uppercase tracking-wider block">Admin Email Address</label>
               <div className="relative">
@@ -196,7 +282,8 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ onLoginSuccess, onClose 
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-900 focus:outline-none focus:border-brand-blue"
-                  placeholder="e.g. adsparktechnologies01@gmail.com"
+                  placeholder="Email Address"
+                  autoComplete="off"
                   required
                 />
               </div>
@@ -242,7 +329,7 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ onLoginSuccess, onClose 
 
         {/* MODE: EMAIL VERIFICATION */}
         {authMode === 'verify' && (
-          <form id="admin-verify-form" onSubmit={handleVerifySubmit} className="space-y-4 text-xs">
+          <form id="admin-verify-form" onSubmit={handleVerifySubmit} autoComplete="off" className="space-y-4 text-xs">
             <div className="space-y-1">
               <label className="text-slate-600 font-semibold uppercase tracking-wider block">Admin Email Address</label>
               <div className="relative">
@@ -252,6 +339,8 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ onLoginSuccess, onClose 
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-900 focus:outline-none focus:border-brand-blue"
+                  placeholder="Email Address"
+                  autoComplete="off"
                   required
                 />
               </div>
@@ -267,6 +356,23 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ onLoginSuccess, onClose 
                   onChange={(e) => setVerifyCode(e.target.value)}
                   className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-900 focus:outline-none focus:border-brand-blue text-xs font-mono tracking-widest"
                   placeholder="e.g. 842915"
+                  autoComplete="off"
+                  required
+                />
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-slate-600 font-semibold uppercase tracking-wider block">New Password</label>
+              <div className="relative">
+                <Lucide.KeyRound className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                <input
+                  type="password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-900 focus:outline-none focus:border-brand-blue text-xs"
+                  placeholder="Password"
+                  autoComplete="off"
                   required
                 />
               </div>
@@ -290,7 +396,7 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ onLoginSuccess, onClose 
               disabled={loading}
               className="w-full py-3 rounded-xl bg-brand-blue text-white font-bold text-center hover:bg-opacity-95 shadow-lg shadow-blue-100 hover:shadow-blue-200/50 transition-all cursor-pointer"
             >
-              Verify Code Credentials
+              Verify & Reset Password
             </button>
 
             <div className="text-center">

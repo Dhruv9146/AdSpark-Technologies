@@ -4,6 +4,7 @@ import fs from 'fs';
 import { createServer as createViteServer } from 'vite';
 import { GoogleGenAI } from '@google/genai';
 import dotenv from 'dotenv';
+import crypto from 'crypto';
 
 // Load environment variables
 dotenv.config();
@@ -25,7 +26,8 @@ import {
   initialLogs,
   initialApplications,
   initialMessages,
-  initialSubscribers
+  initialSubscribers,
+  initialAdmins
 } from './src/data.js';
 
 const app = express();
@@ -52,7 +54,7 @@ if (process.env.GEMINI_API_KEY) {
 }
 
 // In-Memory Database State
-let DB = {
+let DB: any = {
   services: seedServices,
   projects: seedProjects,
   blogs: seedBlogs,
@@ -110,6 +112,92 @@ function saveDatabase() {
 // Initialize datastore
 loadDatabase();
 
+// -------------------------------------------------------------
+// SECURE PASSWORD HASHING & SEEDING UTILITIES
+// -------------------------------------------------------------
+function hashPassword(password: string, salt: string): string {
+  return crypto.createHmac('sha256', salt).update(password).digest('hex');
+}
+
+function generateSalt(): string {
+  return crypto.randomBytes(16).toString('hex');
+}
+
+// Check and seed admin credentials securely on boot
+if (!DB.adminCredentials) {
+  const seedCredentials = [
+    { email: 'adsparktechnologies01@gmail.com', password: 'AdSpark@2026' },
+    { email: 'admin@adsparktech.com', password: 'AdSparkAdmin@2026' },
+    { email: 'editor@adsparktech.com', password: 'AdSparkEditor@2026' },
+    { email: 'manager@adsparktech.com', password: 'AdSparkManager@2026' }
+  ];
+
+  DB.adminCredentials = seedCredentials.map(sc => {
+    const salt = generateSalt();
+    return {
+      email: sc.email.toLowerCase(),
+      passwordHash: hashPassword(sc.password, salt),
+      salt: salt
+    };
+  });
+  saveDatabase();
+  console.log('[SECURITY] Admin credentials successfully seeded in backend datastore.');
+}
+
+// -------------------------------------------------------------
+// SECURE BRUTE FORCE PROTECTION REGISTRY
+// -------------------------------------------------------------
+interface BruteForceRecord {
+  failedAttempts: number;
+  lockoutUntil: number;
+}
+const bruteForceRegistry = new Map<string, BruteForceRecord>();
+
+function isLockedOut(key: string): boolean {
+  const record = bruteForceRegistry.get(key);
+  if (!record) return false;
+  if (Date.now() < record.lockoutUntil) {
+    return true;
+  }
+  // Lock expired, reset
+  if (Date.now() >= record.lockoutUntil && record.failedAttempts >= 5) {
+    bruteForceRegistry.delete(key);
+    return false;
+  }
+  return false;
+}
+
+function recordFailedAttempt(key: string) {
+  const record = bruteForceRegistry.get(key) || { failedAttempts: 0, lockoutUntil: 0 };
+  record.failedAttempts += 1;
+  if (record.failedAttempts >= 5) {
+    record.lockoutUntil = Date.now() + 15 * 60 * 1000; // 15 minutes lockout
+    console.warn(`[SECURITY] Key ${key} is locked out due to brute force protection.`);
+  }
+  bruteForceRegistry.set(key, record);
+}
+
+function resetFailedAttempts(key: string) {
+  bruteForceRegistry.delete(key);
+}
+
+// -------------------------------------------------------------
+// SECURE SESSION & PASSWORD RESET REGISTRIES
+// -------------------------------------------------------------
+interface Session {
+  token: string;
+  email: string;
+  expiresAt: number;
+}
+const activeSessions = new Map<string, Session>();
+
+interface ResetCodeRecord {
+  email: string;
+  code: string;
+  expiresAt: number;
+}
+const resetCodesRegistry = new Map<string, ResetCodeRecord>();
+
 // Activity logging helper
 function logAction(adminEmail: string, action: string, details: string, req: express.Request) {
   const newLog = {
@@ -166,34 +254,175 @@ app.get('/api/db', (req, res) => {
 app.post('/api/auth/login', (req, res) => {
   const { email, password } = req.body;
   if (!email || !password) {
-    return res.status(400).json({ error: 'Email and password are required' });
+    return res.status(400).json({ error: 'Invalid email or password' });
   }
 
-  // Simple auth simulation (Default credentials: adsparktechnologies01@gmail.com / AdSpark@2026)
-  if (email === 'adsparktechnologies01@gmail.com' && password === 'AdSpark@2026') {
-    logAction(email, 'User Authentication', 'Admin logged in successfully', req);
-    return res.json({
-      success: true,
-      token: `token-admin-${Date.now()}`,
-      user: {
-        email: 'adsparktechnologies01@gmail.com',
-        name: 'Dhruv Marathe',
-        role: 'Administrator'
-      }
-    });
+  const emailLower = email.trim().toLowerCase();
+
+  // Check brute force protection
+  if (isLockedOut(emailLower) || isLockedOut(req.ip || '127.0.0.1')) {
+    return res.status(429).json({ error: 'Too many failed attempts. Account locked. Try again after 15 minutes.' });
   }
 
+  // Find credentials in our secure DB
+  const credentials = (DB.adminCredentials || []).find((c: any) => c.email.toLowerCase() === emailLower);
+
+  if (credentials) {
+    const computedHash = hashPassword(password, credentials.salt);
+    if (computedHash === credentials.passwordHash) {
+      // Find full user details
+      const adminDetails = (initialAdmins || []).find((a: any) => a.email.toLowerCase() === emailLower) || {
+        id: `usr-${Date.now()}`,
+        name: emailLower.split('@')[0],
+        email: emailLower,
+        role: 'Admin',
+        status: 'active'
+      };
+
+      const token = `token-admin-${crypto.randomBytes(32).toString('hex')}`;
+      const expiresAt = Date.now() + 2 * 60 * 60 * 1000; // 2 hours session
+
+      activeSessions.set(token, {
+        token,
+        email: emailLower,
+        expiresAt
+      });
+
+      // Reset brute force
+      resetFailedAttempts(emailLower);
+      resetFailedAttempts(req.ip || '127.0.0.1');
+
+      logAction(emailLower, 'User Authentication', 'Admin logged in successfully', req);
+
+      return res.json({
+        success: true,
+        token,
+        user: adminDetails
+      });
+    }
+  }
+
+  // Record failed attempts
+  recordFailedAttempt(emailLower);
+  recordFailedAttempt(req.ip || '127.0.0.1');
+
+  // Generic error message without revealing field
   return res.status(401).json({ error: 'Invalid email or password' });
+});
+
+// Forgot Password Handler
+app.post('/api/auth/forgot-password', (req, res) => {
+  const { email } = req.body;
+  if (!email) {
+    return res.status(400).json({ error: 'Email address is required' });
+  }
+
+  const emailLower = email.trim().toLowerCase();
+
+  // Check brute force for email
+  if (isLockedOut(emailLower) || isLockedOut(req.ip || '127.0.0.1')) {
+    return res.status(429).json({ error: 'Too many failed attempts. Try again after 15 minutes.' });
+  }
+
+  // Find credentials in our secure DB
+  const credentials = (DB.adminCredentials || []).find((c: any) => c.email.toLowerCase() === emailLower);
+
+  if (credentials) {
+    // Generate a secure 6-digit verification code
+    const code = Math.floor(100000 + crypto.randomInt(900000)).toString();
+    const expiresAt = Date.now() + 10 * 60 * 1000; // 10 minutes expiry
+
+    resetCodesRegistry.set(emailLower, {
+      email: emailLower,
+      code,
+      expiresAt
+    });
+
+    // Send simulated email
+    sendSimulatedEmail(
+      emailLower,
+      'Admin Account Password Reset Code',
+      `Dear Administrator,\n\nWe received a request to reset your password.\nYour secure 6-digit verification code is:\n\n${code}\n\nThis code is valid for 10 minutes. If you did not request this reset, please ignore this email and review your security settings.`
+    );
+  }
+
+  // Generic response to avoid user enumeration
+  return res.json({
+    success: true,
+    message: 'If that email address exists in our system, we have dispatched a secure recovery code.'
+  });
+});
+
+// Reset Password Handler
+app.post('/api/auth/reset-password', (req, res) => {
+  const { email, code, newPassword } = req.body;
+  if (!email || !code || !newPassword) {
+    return res.status(400).json({ error: 'Email, verification code, and new password are required' });
+  }
+
+  const emailLower = email.trim().toLowerCase();
+
+  // Check brute force
+  if (isLockedOut(emailLower) || isLockedOut(req.ip || '127.0.0.1')) {
+    return res.status(429).json({ error: 'Too many failed attempts. Try again after 15 minutes.' });
+  }
+
+  const record = resetCodesRegistry.get(emailLower);
+  if (!record || record.code !== code.trim() || Date.now() > record.expiresAt) {
+    recordFailedAttempt(emailLower);
+    recordFailedAttempt(req.ip || '127.0.0.1');
+    return res.status(400).json({ error: 'Invalid or expired verification code' });
+  }
+
+  // Reset password
+  const credentialsIndex = (DB.adminCredentials || []).findIndex((c: any) => c.email.toLowerCase() === emailLower);
+  if (credentialsIndex === -1) {
+    return res.status(400).json({ error: 'Account not found' });
+  }
+
+  const newSalt = generateSalt();
+  DB.adminCredentials[credentialsIndex].passwordHash = hashPassword(newPassword, newSalt);
+  DB.adminCredentials[credentialsIndex].salt = newSalt;
+  saveDatabase();
+
+  // Clear reset code
+  resetCodesRegistry.delete(emailLower);
+  resetFailedAttempts(emailLower);
+
+  logAction(emailLower, 'Password Reset', 'Password securely updated via recovery code', req);
+
+  // Send confirmation email
+  sendSimulatedEmail(
+    emailLower,
+    'Your password has been reset successfully',
+    `Hi,\n\nThis is to confirm that the password for your administrator account (${emailLower}) has been updated successfully. If you did not perform this change, please contact security immediately.`
+  );
+
+  return res.json({ success: true, message: 'Password reset successfully!' });
+});
+
+// Logout Handler
+app.post('/api/auth/logout', (req, res) => {
+  const authHeader = req.headers.authorization;
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    const token = authHeader.substring(7);
+    activeSessions.delete(token);
+  }
+  res.json({ success: true, message: 'Logged out successfully' });
 });
 
 // Admin verification middleware
 function requireAdmin(req: express.Request, res: express.Response, next: express.NextFunction) {
   const authHeader = req.headers.authorization;
-  if (authHeader && authHeader.startsWith('Bearer token-admin')) {
-    next();
-  } else {
-    res.status(403).json({ error: 'Unauthorized. Admin credentials required.' });
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    const token = authHeader.substring(7);
+    const session = activeSessions.get(token);
+    if (session && Date.now() < session.expiresAt) {
+      next();
+      return;
+    }
   }
+  res.status(403).json({ error: 'Unauthorized. Admin credentials required.' });
 }
 
 // 2. Services REST API

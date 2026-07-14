@@ -11,6 +11,12 @@
   --color-brand-slate: #1e293b;
 }
 
+html, body {
+  overflow-x: hidden;
+  max-width: 100%;
+  width: 100%;
+}
+
 /* Glassmorphism utility backdrops */
 .glass-panel {
   background: rgba(15, 23, 42, 0.45);
@@ -39,3 +45,33 @@
 ::-webkit-scrollbar-thumb:hover {
   background: rgba(14, 165, 233, 0.6);
 }
+
+/* Custom media queries for 992px responsive behaviors */
+@media (max-width: 991px) {
+  .nav-desktop-only {
+    display: none !important;
+  }
+  .nav-mobile-only {
+    display: flex !important;
+  }
+  .nav-mobile-only-block {
+    display: block !important;
+  }
+}
+@media (min-width: 992px) {
+  .nav-desktop-only {
+    display: flex !important;
+  }
+  .nav-mobile-only {
+    display: none !important;
+  }
+  .nav-mobile-only-block {
+    display: none !important;
+  }
+}
+
+.no-scroll {
+  overflow: hidden !important;
+  height: 100vh !important;
+}
+
