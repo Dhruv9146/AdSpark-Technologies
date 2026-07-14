@@ -21,6 +21,53 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ onLoginSuccess, onClose 
   const [verifyCode, setVerifyCode] = useState<string>('');
   const [newPassword, setNewPassword] = useState<string>('');
 
+  const safeFetch = async (url: string, options: RequestInit, retries = 2, delayMs = 1000): Promise<Response> => {
+    const timeoutMs = 8000;
+    
+    for (let attempt = 1; attempt <= retries + 1; attempt++) {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+      try {
+        const res = await fetch(url, {
+          ...options,
+          signal: controller.signal,
+        });
+        clearTimeout(timeoutId);
+
+        const contentType = res.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+          throw new Error('Our API services are currently initializing. Please wait a few seconds and try again.');
+        }
+
+        return res;
+      } catch (err: any) {
+        clearTimeout(timeoutId);
+
+        const isTimeout = err.name === 'AbortError' || err.message?.toLowerCase().includes('timeout');
+        const isNetworkError = err.name === 'TypeError' || err.message?.toLowerCase().includes('failed to fetch') || err.message?.toLowerCase().includes('network');
+        
+        if (attempt <= retries && (isNetworkError || isTimeout)) {
+          console.warn(`API Request attempt ${attempt} failed: ${err.message}. Retrying in ${delayMs}ms...`);
+          await new Promise((resolve) => setTimeout(resolve, delayMs));
+          continue;
+        }
+
+        if (isTimeout) {
+          throw new Error('The request timed out because the server is taking too long to respond. Please check your internet connection or try again later.');
+        }
+
+        if (isNetworkError) {
+          throw new Error('Unable to establish a secure connection to AdSpark\'s authentication servers. The server might be offline or you may be experiencing network issues. Please check your internet connection and try again.');
+        }
+
+        throw err;
+      }
+    }
+    
+    throw new Error('All attempts to reach our authentication services failed. Please check your internet connection and try again.');
+  };
+
   const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorText('');
@@ -34,18 +81,13 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ onLoginSuccess, onClose 
     setLoading(true);
 
     try {
-      const res = await fetch('/api/auth/login', {
+      const res = await safeFetch('/api/auth/login', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({ email, password })
       });
-
-      const contentType = res.headers.get('content-type');
-      if (!contentType || !contentType.includes('application/json')) {
-        throw new Error('Our API services are currently initializing. Please wait a few seconds and try again.');
-      }
 
       const result = await res.json();
 
@@ -86,18 +128,13 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ onLoginSuccess, onClose 
     setLoading(true);
 
     try {
-      const res = await fetch('/api/auth/forgot-password', {
+      const res = await safeFetch('/api/auth/forgot-password', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({ email })
       });
-
-      const contentType = res.headers.get('content-type');
-      if (!contentType || !contentType.includes('application/json')) {
-        throw new Error('Our API services are currently initializing. Please wait a few seconds and try again.');
-      }
 
       const result = await res.json();
 
@@ -130,18 +167,13 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ onLoginSuccess, onClose 
     setLoading(true);
 
     try {
-      const res = await fetch('/api/auth/reset-password', {
+      const res = await safeFetch('/api/auth/reset-password', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({ email, code: verifyCode, newPassword })
       });
-
-      const contentType = res.headers.get('content-type');
-      if (!contentType || !contentType.includes('application/json')) {
-        throw new Error('Our API services are currently initializing. Please wait a few seconds and try again.');
-      }
 
       const result = await res.json();
 
