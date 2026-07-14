@@ -26,7 +26,7 @@ export const seedServices: Service[] = [
     description: 'We construct secure, high-performing, and highly available bespoke software. From high-throughput backend services to cloud-native microservices, our architectures are built to adapt. We leverage state-of-the-art software engineering principles to ensure your proprietary logic is robustly implemented, completely auditable, and seamlessly expandable.',
     pricing: '$10,000 - $45,000+',
     category: 'Software Engineering',
-    image: '/src/assets/images/software_development_1784004918872.jpg'
+    image: 'assets/images/services/software_development.jpg'
   },
   {
     id: 'web-dev',
@@ -36,7 +36,7 @@ export const seedServices: Service[] = [
     description: 'Our websites combine premium aesthetics with modern performance benchmarks. Leveraging static generation, server-side rendering, and responsive grid layouts, we build secure digital spaces. Optimized for fast content loading, screen responsiveness, and conversion rate efficiency.',
     pricing: '$3,500 - $12,000',
     category: 'Web Development',
-    image: '/src/assets/images/website_development_1784004929617.jpg'
+    image: 'assets/images/services/website_development.jpg'
   },
   {
     id: 'mobile-apps',
@@ -46,7 +46,7 @@ export const seedServices: Service[] = [
     description: 'We craft high-fidelity mobile experiences using React Native and Flutter, ensuring native performance and consistent UI across devices. Integrated with hardware features, biometric secure authentication, local storage mechanisms, and push notifications, your app stays active and secure.',
     pricing: '$8,000 - $35,000',
     category: 'Mobile Apps',
-    image: '/src/assets/images/ui_ux_design_1784004966306.jpg'
+    image: 'assets/images/services/ui_ux_design.jpg'
   },
   {
     id: 'ui-ux-design',
@@ -56,7 +56,7 @@ export const seedServices: Service[] = [
     description: 'Design is not just what it looks like, but how it behaves. We perform thorough user research, develop structured design languages, and deliver high-contrast, fully interactive Figma layouts. Every viewport is planned for intuitive flow, visual hierarchy, and delightful micro-interactions.',
     pricing: '$2,500 - $8,000',
     category: 'Creative Design',
-    image: '/src/assets/images/ui_ux_design_1784004966306.jpg'
+    image: 'assets/images/services/ui_ux_design.jpg'
   },
   {
     id: 'digital-marketing',
@@ -66,7 +66,7 @@ export const seedServices: Service[] = [
     description: 'Expand your company reach through targeted digital campaigns. We compile market research data, manage high-yield advertising spend across social/search platforms, and orchestrate automated client nurturing pipelines to maximize ROI and lower customer acquisition costs.',
     pricing: '$1,500 - $5,000 / month',
     category: 'Marketing',
-    image: '/src/assets/images/digital_marketing_1784004939722.jpg'
+    image: 'assets/images/services/digital_marketing.jpg'
   },
   {
     id: 'seo-services',
@@ -76,7 +76,7 @@ export const seedServices: Service[] = [
     description: 'We conduct comprehensive keyword exploration, fix technical crawler issues, establish secure sitemap structures, and optimize content semantics. Our data-driven search optimization audits help move your services to Page 1 rankings to increase your natural conversion pipeline.',
     pricing: '$1,200 - $3,500 / month',
     category: 'Marketing',
-    image: '/src/assets/images/digital_marketing_1784004939722.jpg'
+    image: 'assets/images/services/digital_marketing.jpg'
   },
   {
     id: 'ecommerce-dev',
@@ -86,7 +86,7 @@ export const seedServices: Service[] = [
     description: 'We build transactional digital stores engineered to process credit secure gateways easily. Equipped with granular product configuration matrices, dynamic coupon rules, modern shopping cart sync, tax auto-calculation, and multi-tier logistics integrations.',
     pricing: '$5,000 - $25,000',
     category: 'Web Development',
-    image: '/src/assets/images/website_development_1784004929617.jpg'
+    image: 'assets/images/services/website_development.jpg'
   },
   {
     id: 'erp-crm-dev',
@@ -96,7 +96,7 @@ export const seedServices: Service[] = [
     description: 'Consolidate your resource monitoring. We develop dedicated ERP dashboards mapping client relations, team scheduling, supply chains, invoicing histories, and client interaction records, completely customized around your existing business logic.',
     pricing: '$12,000 - $50,000+',
     category: 'Enterprise Solutions',
-    image: '/src/assets/images/software_development_1784004918872.jpg'
+    image: 'assets/images/services/software_development.jpg'
   },
   {
     id: 'cloud-solutions',
@@ -106,7 +106,7 @@ export const seedServices: Service[] = [
     description: 'Migrate with absolute confidence. We arrange serverless instances, distribute traffic via global content delivery networks, structure Virtual Private Clouds, and coordinate active monitoring to keep your web services safe, available, and highly performant.',
     pricing: '$4,000 - $18,000',
     category: 'Cloud Infrastructure',
-    image: '/src/assets/images/data_analytics_1784004951991.jpg'
+    image: 'assets/images/services/data_analytics.jpg'
   },
   {
     id: 'api-integration',
@@ -116,7 +116,7 @@ export const seedServices: Service[] = [
     description: 'We unify fragmented digital systems. Our team constructs tailored API integrations using standard REST/GraphQL interfaces with strict token validations, rate limits, and failure fallback modes, ensuring your platforms exchange critical info without delay.',
     pricing: '$2,000 - $7,500',
     category: 'Software Engineering',
-    image: '/src/assets/images/software_development_1784004918872.jpg'
+    image: 'assets/images/services/software_development.jpg'
   },
   {
     id: 'ai-automation',
@@ -126,7 +126,7 @@ export const seedServices: Service[] = [
     description: 'Implement AI inside your operations. We build pipelines featuring advanced Large Language Models, document semantic search agents, conversational support helpers, and background data classification triggers, removing mundane administrative workloads.',
     pricing: '$6,000 - $30,000',
     category: 'AI Engineering',
-    image: '/src/assets/images/data_analytics_1784004951991.jpg'
+    image: 'assets/images/services/data_analytics.jpg'
   },
   {
     id: 'data-analytics',
@@ -136,7 +136,7 @@ export const seedServices: Service[] = [
     description: 'We turn digital data points into understandable maps. By implementing comprehensive tracking layers, aggregating raw client behaviors, and assembling responsive graphs, we enable managers to form business decisions supported by clean metrics.',
     pricing: '$4,500 - $15,000',
     category: 'Enterprise Solutions',
-    image: '/src/assets/images/data_analytics_1784004951991.jpg'
+    image: 'assets/images/services/data_analytics.jpg'
   },
   {
     id: 'it-consulting',
@@ -146,7 +146,7 @@ export const seedServices: Service[] = [
     description: 'Align your digital spend with company objectives. We audit server overhead logs, inspect existing code bases for common structural bottlenecks, design clear security procedures, and outline software blueprints ready to guide your engineer hires.',
     pricing: '$150 - $250 / hour',
     category: 'Consulting',
-    image: '/src/assets/images/about_section_1784004907635.jpg'
+    image: 'assets/images/backgrounds/about_section.jpg'
   },
   {
     id: 'maintenance-support',
@@ -156,7 +156,7 @@ export const seedServices: Service[] = [
     description: 'We keep your digital assets secure and online. Our support packages provide constant downtime tracking, weekly database backups, active security patching, third-party library maintenance, and immediate bug resolution to guarantee constant application uptime.',
     pricing: '$500 - $2,500 / month',
     category: 'Consulting',
-    image: '/src/assets/images/software_development_1784004918872.jpg'
+    image: 'assets/images/services/software_development.jpg'
   }
 ];
 
@@ -173,8 +173,8 @@ export const seedProjects: Project[] = [
     githubLink: 'https://github.com/adspark/omnichannel',
     description: 'A complete, high-yield digital retail infrastructure uniting local store inventory channels, real-time product catalogs, global checkout networks, and structured shipping management in a secure, unified framework.',
     images: [
-      '/src/assets/images/portfolio_retail_1784004984060.jpg',
-      '/src/assets/images/website_development_1784004929617.jpg'
+      'assets/images/portfolio/portfolio_retail.jpg',
+      'assets/images/services/website_development.jpg'
     ],
     featured: true
   },
@@ -190,8 +190,8 @@ export const seedProjects: Project[] = [
     githubLink: 'https://github.com/adspark/ai-screener',
     description: 'An intelligent HR recruitment screener that processes candidate application resumes against technical job requirements using Gemini, creating structured scoring grids and summarized qualification matrices.',
     images: [
-      '/src/assets/images/portfolio_resume_1784004999378.jpg',
-      '/src/assets/images/software_development_1784004918872.jpg'
+      'assets/images/portfolio/portfolio_resume.jpg',
+      'assets/images/services/software_development.jpg'
     ],
     featured: true
   },
@@ -206,8 +206,8 @@ export const seedProjects: Project[] = [
     liveLink: 'https://example.com/healthcare-erp',
     description: 'An advanced, highly compliant electronic medical records planner. Includes patient registration funnels, real-time doctor appointment coordination, and secure, encrypted insurance payment triggers.',
     images: [
-      '/src/assets/images/portfolio_medical_1784005011662.jpg',
-      '/src/assets/images/data_analytics_1784004951991.jpg'
+      'assets/images/portfolio/portfolio_medical.jpg',
+      'assets/images/services/data_analytics.jpg'
     ],
     featured: false
   },
@@ -223,7 +223,7 @@ export const seedProjects: Project[] = [
     githubLink: 'https://github.com/adspark/wallet-analytics',
     description: 'A complete blockchain analytics engine displaying multi-chain investment flows, automated transaction categorization, and dynamic performance charting with interactive filters.',
     images: [
-      '/src/assets/images/portfolio_crypto_1784005023929.jpg'
+      'assets/images/portfolio/portfolio_crypto.jpg'
     ],
     featured: true
   }
@@ -252,7 +252,7 @@ const response = await ai.models.generateContent({
 </code></pre>
 
 <p>This simple call triggers secure AI reasoning, scanning the metadata of raw documents and sorting the fields automatically into invoice tables. The result is a dramatic decrease in administrative bottlenecks and an acceleration of workforce output.</p>`,
-    featuredImage: '/src/assets/images/blog_gemini_1784005105805.jpg',
+    featuredImage: 'assets/images/backgrounds/blog_gemini.jpg',
     author: 'Sarah Jenkins',
     authorRole: 'Head of AI Research',
     publishedAt: '2026-07-01',
@@ -283,7 +283,7 @@ const response = await ai.models.generateContent({
 <p>Tailwind CSS v4 introduces major architectural upgrades. Compiling is now handled directly inside Vite using native compilation pipelines, completely bypassing heavy legacy post-processing modules.</p>
 
 <p>This means your production build time is cut in half, and developers enjoy instant hot updates in the browser canvas. High-performance layouts keep users engaged, reducing page bounce rates and boosting site rank metrics.</p>`,
-    featuredImage: '/src/assets/images/blog_tailwind_1784005117187.jpg',
+    featuredImage: 'assets/images/backgrounds/blog_tailwind.jpg',
     author: 'Daniel Vance',
     authorRole: 'Principal Web Architect',
     publishedAt: '2026-06-15',
@@ -351,7 +351,7 @@ export const seedTestimonials: Testimonial[] = [
     company: 'Apex Global Ltd',
     feedback: 'AdSpark Technologies delivered our OmniChannel platform ahead of schedule. The engineering team is incredibly meticulous and their attention to technical detail is unrivaled.',
     rating: 5,
-    image: '/src/assets/images/testimonial_eleanor_1784005070653.jpg'
+    image: 'assets/images/testimonials/testimonial_eleanor.jpg'
   },
   {
     id: 'test-2',
@@ -360,7 +360,7 @@ export const seedTestimonials: Testimonial[] = [
     company: 'NovaCare Clinics',
     feedback: 'The Medical Records ERP they crafted has completely unified our team coordination. Patient intake flows are 40% faster now and the custom interfaces are delightfully intuitive.',
     rating: 5,
-    image: '/src/assets/images/testimonial_marcus_1784005084150.jpg'
+    image: 'assets/images/testimonials/testimonial_marcus.jpg'
   },
   {
     id: 'test-3',
@@ -369,7 +369,7 @@ export const seedTestimonials: Testimonial[] = [
     company: 'DecentraHold Inc',
     feedback: 'We wanted a high-end blockchain analytics system. AdSpark listened, planned perfectly, and delivered a dynamic glassmorphism dashboard that has blown away our clients.',
     rating: 5,
-    image: '/src/assets/images/testimonial_aria_1784005093966.jpg'
+    image: 'assets/images/testimonials/testimonial_aria.jpg'
   }
 ];
 
@@ -382,15 +382,15 @@ export const seedClients: ClientPartner[] = [
 ];
 
 export const seedGallery: GalleryItem[] = [
-  { id: 'gal-1', title: 'AdSpark Innovation Summit 2026', image: '/src/assets/images/about_section_1784004907635.jpg', category: 'Events', description: 'Our annual technology conference discussing LLM architectures.' },
-  { id: 'gal-2', title: 'Silicon Valley Team Pod', image: '/src/assets/images/digital_marketing_1784004939722.jpg', category: 'Workplace', description: 'Coordinating on enterprise CRM design frameworks.' },
-  { id: 'gal-3', title: 'Figma Prototyping Workshop', image: '/src/assets/images/ui_ux_design_1784004966306.jpg', category: 'Creative', description: 'Polishing layout interactions for mobile app mockups.' }
+  { id: 'gal-1', title: 'AdSpark Innovation Summit 2026', image: 'assets/images/backgrounds/about_section.jpg', category: 'Events', description: 'Our annual technology conference discussing LLM architectures.' },
+  { id: 'gal-2', title: 'Silicon Valley Team Pod', image: 'assets/images/services/digital_marketing.jpg', category: 'Workplace', description: 'Coordinating on enterprise CRM design frameworks.' },
+  { id: 'gal-3', title: 'Figma Prototyping Workshop', image: 'assets/images/services/ui_ux_design.jpg', category: 'Creative', description: 'Polishing layout interactions for mobile app mockups.' }
 ];
 
 export const seedTeam: TeamMember[] = [
-  { id: 'tm-1', name: 'Dhruv Marathe', role: 'Chief Executive Officer', bio: 'Strategic systems leader directing AdSpark Technologies towards advanced, high-performance cognitive software solutions.', image: '/src/assets/images/team_dhruv_1784005034804.jpg', socials: { linkedin: 'https://linkedin.com/in/dhruvmarathe', github: 'https://github.com/dhruv' } },
-  { id: 'tm-2', name: 'Sarah Jenkins', role: 'Head of AI & Software', bio: 'Expert backend architect specialized in Large Language Models integration, cognitive parsing, and schema architectures.', image: '/src/assets/images/team_sarah_1784005046803.jpg', socials: { linkedin: 'https://linkedin.com/in/sarahjenkins', github: 'https://github.com/sarah' } },
-  { id: 'tm-3', name: 'Daniel Vance', role: 'Principal Web Architect', bio: 'Creative designer and developer committed to responsive layouts, elegant visual transitions, and fast render scores.', image: '/src/assets/images/team_daniel_1784005057736.jpg', socials: { linkedin: 'https://linkedin.com/in/danielvance', github: 'https://github.com/daniel' } }
+  { id: 'tm-1', name: 'Dhruv Marathe', role: 'Chief Executive Officer', bio: 'Strategic systems leader directing AdSpark Technologies towards advanced, high-performance cognitive software solutions.', image: 'assets/images/team/team_dhruv.jpg', socials: { linkedin: 'https://linkedin.com/in/dhruvmarathe', github: 'https://github.com/dhruv' } },
+  { id: 'tm-2', name: 'Sarah Jenkins', role: 'Head of AI & Software', bio: 'Expert backend architect specialized in Large Language Models integration, cognitive parsing, and schema architectures.', image: 'assets/images/team/team_sarah.jpg', socials: { linkedin: 'https://linkedin.com/in/sarahjenkins', github: 'https://github.com/sarah' } },
+  { id: 'tm-3', name: 'Daniel Vance', role: 'Principal Web Architect', bio: 'Creative designer and developer committed to responsive layouts, elegant visual transitions, and fast render scores.', image: 'assets/images/team/team_daniel.jpg', socials: { linkedin: 'https://linkedin.com/in/danielvance', github: 'https://github.com/daniel' } }
 ];
 
 export const seedInvoices: Invoice[] = [
@@ -438,7 +438,7 @@ export const defaultSEO: SEOConfig = {
   metaDesc: 'AdSpark Technologies is a leading Software Development company engineering custom applications, e-commerce storefronts, cloud infrastructures, and LLM integrations.',
   ogTitle: 'AdSpark Technologies | Enterprise Digital Engineering',
   ogDesc: 'Bespoke corporate software, responsive web portals, and reliable cloud solutions designed to fuel system performance and enterprise growth.',
-  ogImage: '/src/assets/images/hero_banner_1784004890586.jpg',
+  ogImage: 'assets/images/hero/hero_banner.jpg',
   twitterCard: 'summary_large_image'
 };
 

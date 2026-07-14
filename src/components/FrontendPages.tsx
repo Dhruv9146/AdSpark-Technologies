@@ -61,21 +61,21 @@ export const FrontendPages: React.FC<FrontendPagesProps> = ({
     {
       title: 'Next-Gen Enterprise Software Engineering',
       desc: 'Bespoke corporate software, responsive web platforms, and automated LLM configurations custom-engineered for global scaling brands.',
-      image: '/src/assets/images/hero_banner_1784004890586.jpg',
+      image: 'assets/images/hero/hero_banner.jpg',
       cta: 'Request Free IT Proposal',
       tab: 'contact'
     },
     {
       title: 'Full-Stack E-Commerce & ERP Solutions',
       desc: 'High-yield storefronts, complete transaction safety, multi-tier checkout paths, and unified resource planners tailored around your company logic.',
-      image: '/src/assets/images/website_development_1784004929617.jpg',
+      image: 'assets/images/services/website_development.jpg',
       cta: 'Explore Our Services',
       tab: 'services'
     },
     {
       title: 'Cognitive AI Systems & Process Automation',
       desc: 'Unifying neural models, document semantic searches, conversational helpers, and cloud-native serverless clusters to accelerate operations.',
-      image: '/src/assets/images/data_analytics_1784004951991.jpg',
+      image: 'assets/images/services/data_analytics.jpg',
       cta: 'Meet Our Tech Leaders',
       tab: 'team'
     }
@@ -278,7 +278,7 @@ export const FrontendPages: React.FC<FrontendPagesProps> = ({
             <section className="max-w-7xl mx-auto px-4 grid md:grid-cols-2 gap-12 items-center">
               <div className="rounded-2xl overflow-hidden aspect-video shadow-md bg-slate-100">
                 <img
-                  src="/src/assets/images/about_section_1784004907635.jpg"
+                  src="assets/images/backgrounds/about_section.jpg"
                   alt="Corporate Teamwork"
                   className="w-full h-full object-cover"
                   referrerPolicy="no-referrer"
@@ -635,7 +635,7 @@ export const FrontendPages: React.FC<FrontendPagesProps> = ({
               </div>
               <div className="rounded-2xl overflow-hidden aspect-video shadow-md bg-slate-100">
                 <img
-                  src="/src/assets/images/digital_marketing_1784004939722.jpg"
+                  src="assets/images/services/digital_marketing.jpg"
                   alt="Tech team workspace"
                   className="w-full h-full object-cover"
                   referrerPolicy="no-referrer"
