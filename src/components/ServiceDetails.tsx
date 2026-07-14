@@ -50,26 +50,17 @@ export const ServiceDetails: React.FC<ServiceDetailsProps> = ({
         <div className="grid md:grid-cols-12 gap-8 items-start">
           {/* Main Visuals & Long Description */}
           <div className="md:col-span-8 space-y-6">
-            <div className="rounded-2xl overflow-hidden aspect-video relative shadow-lg">
-              <img
-                src={selectedService.image}
-                alt={selectedService.title}
-                className="w-full h-full object-cover"
-                referrerPolicy="no-referrer"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent"></div>
-              <div className="absolute bottom-6 left-6 flex items-center gap-4">
-                <div className="p-3 rounded-xl bg-brand-blue text-white shadow">
-                  <IconRenderer name={selectedService.icon} className="w-8 h-8" />
-                </div>
-                <div>
-                  <span className="text-xs font-semibold bg-white/20 text-white backdrop-blur px-2.5 py-1 rounded-full uppercase">
-                    {selectedService.category}
-                  </span>
-                  <h1 className="text-2xl md:text-3xl font-display font-bold text-white tracking-tight mt-1">
-                    {selectedService.title}
-                  </h1>
-                </div>
+            <div className="bg-gradient-to-r from-slate-900 to-slate-800 p-8 rounded-2xl flex flex-col sm:flex-row items-center gap-6 text-white shadow-md">
+              <div className="p-4 rounded-xl bg-brand-blue text-white shadow">
+                <IconRenderer name={selectedService.icon} className="w-12 h-12" />
+              </div>
+              <div className="text-center sm:text-left space-y-1.5">
+                <span className="text-xs font-semibold bg-white/20 text-white backdrop-blur px-2.5 py-1 rounded-full uppercase">
+                  {selectedService.category}
+                </span>
+                <h1 className="text-2xl md:text-3xl font-display font-bold text-white tracking-tight block">
+                  {selectedService.title}
+                </h1>
               </div>
             </div>
 
@@ -107,13 +98,13 @@ export const ServiceDetails: React.FC<ServiceDetailsProps> = ({
             <div className="bg-slate-50 border border-slate-100 rounded-2xl p-6 shadow-sm space-y-6">
               <div>
                 <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider block">
-                  Project Estimate Base
+                  Service Request
                 </span>
-                <span className="text-3xl font-display font-bold text-slate-900 block mt-1">
-                  {selectedService.pricing}
+                <span className="text-xl font-display font-bold text-slate-900 block mt-1">
+                  Bespoke Consultation
                 </span>
                 <p className="text-xs text-slate-500 mt-2">
-                  *Estimates depend on exact workforce requirements and project complexity.
+                  Tailored scopes depend on exact business goals and technical engineering metrics.
                 </p>
               </div>
 
@@ -193,47 +184,37 @@ export const ServiceDetails: React.FC<ServiceDetailsProps> = ({
             id={`service-card-${service.id}`}
             className="group bg-white border border-slate-100 rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-all flex flex-col justify-between"
           >
-            <div>
-              <div className="h-48 overflow-hidden relative">
-                <img
-                  src={service.image}
-                  alt={service.title}
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                  referrerPolicy="no-referrer"
-                />
-                <div className="absolute top-4 right-4 bg-white/90 backdrop-blur px-3 py-1 rounded-full text-xs font-semibold text-brand-blue shadow">
-                  {service.category}
-                </div>
-              </div>
-
-              <div className="p-6">
-                <div className="flex items-center gap-3 mb-3">
-                  <div className="p-2.5 rounded-lg bg-blue-50 text-brand-blue group-hover:bg-brand-blue group-hover:text-white transition-colors">
-                    <IconRenderer name={service.icon} className="w-6 h-6" />
+            <div className="p-6 flex flex-col justify-between h-full flex-grow">
+              <div>
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="p-3 rounded-xl bg-blue-50 text-brand-blue group-hover:bg-brand-blue group-hover:text-white transition-all shadow-xs">
+                    <IconRenderer name={service.icon} className="w-8 h-8" />
                   </div>
-                  <h3 className="text-lg font-display font-bold text-slate-900">
-                    {service.title}
-                  </h3>
+                  <div>
+                    <span className="text-[10px] font-bold text-brand-blue uppercase bg-blue-50 px-2 py-0.5 rounded-full block w-fit mb-1">
+                      {service.category}
+                    </span>
+                    <h3 className="text-lg font-display font-bold text-slate-900 leading-snug">
+                      {service.title}
+                    </h3>
+                  </div>
                 </div>
                 <p className="text-sm text-slate-600 line-clamp-3 leading-relaxed">
                   {service.shortDesc}
                 </p>
               </div>
-            </div>
-
-            <div className="px-6 pb-6 pt-2 border-t border-slate-50 flex items-center justify-between">
-              <div>
-                <span className="text-[10px] text-slate-400 uppercase tracking-wider block">Estimated Base</span>
-                <span className="text-sm font-semibold text-slate-700">{service.pricing}</span>
+              
+              <div className="mt-6 pt-4 border-t border-slate-50 flex items-center justify-between">
+                <span className="text-xs font-semibold text-slate-400">Professional Scoping</span>
+                <button
+                  id={`explore-service-${service.id}-btn`}
+                  onClick={() => onSelectService(service.id)}
+                  className="text-xs font-bold text-brand-blue hover:text-opacity-80 transition-all flex items-center gap-1 group/btn cursor-pointer"
+                >
+                  Learn More
+                  <Lucide.ArrowRight size={14} className="group-hover/btn:translate-x-0.5 transition-transform" />
+                </button>
               </div>
-              <button
-                id={`explore-service-${service.id}-btn`}
-                onClick={() => onSelectService(service.id)}
-                className="text-xs font-bold text-brand-blue hover:text-opacity-80 transition-all flex items-center gap-1 group/btn cursor-pointer"
-              >
-                Learn More
-                <Lucide.ArrowRight size={14} className="group-hover/btn:translate-x-0.5 transition-transform" />
-              </button>
             </div>
           </div>
         ))}

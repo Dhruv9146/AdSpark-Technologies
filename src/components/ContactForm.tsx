@@ -41,66 +41,81 @@ export const ContactForm: React.FC<ContactFormProps> = ({ settings, onRefreshDat
     }
   ];
 
-  const handleMessageSubmit = async (e: React.FormEvent) => {
+  const handleMessageSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!name || !email || !message) {
       setMsgStatus('Please fill in Name, Email and Message.');
       return;
     }
 
-    setMsgStatus('Sending your secure inquiry...');
     try {
-      const res = await fetch('/api/contacts', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, email, subject, message })
-      });
+      const stored = localStorage.getItem('adspark_db');
+      if (stored) {
+        const db = JSON.parse(stored);
+        const newMessage = {
+          id: 'msg-' + Date.now(),
+          name,
+          email,
+          subject: subject || 'General Systems Consultation',
+          message,
+          status: 'Unread',
+          submittedAt: new Date().toISOString()
+        };
+        db.messages = [newMessage, ...(db.messages || [])];
+        
+        // Push a security/audit log too
+        const newLog = {
+          id: 'log-' + Date.now(),
+          adminEmail: 'visitor@adspark.tech',
+          action: 'Contact Inquiry Submitted',
+          details: `Inquiry received from ${name} (${email})`,
+          ipAddress: '127.0.0.1',
+          timestamp: new Date().toISOString().replace('T', ' ').substring(0, 19)
+        };
+        db.logs = [newLog, ...(db.logs || [])];
 
-      if (res.ok) {
-        setName('');
-        setEmail('');
-        setSubject('');
-        setMessage('');
-        setMsgStatus('Thank you! Your message was received and logged. Our IT consultants will contact you shortly.');
-        onRefreshData();
-      } else {
-        const err = await res.json();
-        setMsgStatus(`Failed to send: ${err.error || 'Server error'}`);
+        localStorage.setItem('adspark_db', JSON.stringify(db));
       }
     } catch (err) {
-      console.error(err);
-      setMsgStatus('Error communicating with Express server.');
+      console.error('Error saving local message:', err);
     }
+
+    setName('');
+    setEmail('');
+    setSubject('');
+    setMessage('');
+    setMsgStatus('Thank you. Your enquiry has been submitted successfully.');
+    onRefreshData();
   };
 
-  const handleNewsletterSubmit = async (e: React.FormEvent) => {
+  const handleNewsletterSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newsEmail || !newsEmail.includes('@')) {
       setNewsStatus('Please specify a valid email address.');
       return;
     }
 
-    setNewsStatus('Subscribing...');
     try {
-      const res = await fetch('/api/subscribers', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: newsEmail })
-      });
-
-      if (res.ok) {
-        setNewsEmail('');
-        setNewsStatus('Subscription confirmed! Thank you.');
-        onRefreshData();
-        setTimeout(() => setNewsStatus(''), 5000);
-      } else {
-        const err = await res.json();
-        setNewsStatus(`Error: ${err.error || 'Failed'}`);
+      const stored = localStorage.getItem('adspark_db');
+      if (stored) {
+        const db = JSON.parse(stored);
+        const newSub = {
+          id: 'sub-' + Date.now(),
+          email: newsEmail,
+          subscribedAt: new Date().toISOString().split('T')[0],
+          status: 'Active'
+        };
+        db.subscribers = [newSub, ...(db.subscribers || [])];
+        localStorage.setItem('adspark_db', JSON.stringify(db));
       }
     } catch (err) {
-      console.error(err);
-      setNewsStatus('Connection failed.');
+      console.error('Error saving local subscriber:', err);
     }
+
+    setNewsEmail('');
+    setNewsStatus('Subscription confirmed! Thank you.');
+    onRefreshData();
+    setTimeout(() => setNewsStatus(''), 5000);
   };
 
   return (

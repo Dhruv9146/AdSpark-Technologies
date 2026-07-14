@@ -14,9 +14,6 @@ import * as Lucide from 'lucide-react';
 
 // Import modular subsets
 import { ServiceDetails, IconRenderer } from './ServiceDetails';
-import { PortfolioView } from './PortfolioView';
-import { BlogView } from './BlogView';
-import { CareerJobs } from './CareerJobs';
 import { ContactForm } from './ContactForm';
 
 interface FrontendPagesProps {
@@ -52,8 +49,6 @@ export const FrontendPages: React.FC<FrontendPagesProps> = ({
 }) => {
   // Navigation states
   const [selectedServiceId, setSelectedServiceId] = useState<string | null>(null);
-  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
-  const [selectedBlogSlug, setSelectedBlogSlug] = useState<string | null>(null);
 
   // Home Hero Slider state
   const [activeSlide, setActiveSlide] = useState<number>(0);
@@ -61,49 +56,32 @@ export const FrontendPages: React.FC<FrontendPagesProps> = ({
     {
       title: 'Next-Gen Enterprise Software Engineering',
       desc: 'Bespoke corporate software, responsive web platforms, and automated LLM configurations custom-engineered for global scaling brands.',
-      image: 'assets/images/hero/hero_banner.jpg',
       cta: 'Request Free IT Proposal',
       tab: 'contact'
     },
     {
       title: 'Full-Stack E-Commerce & ERP Solutions',
       desc: 'High-yield storefronts, complete transaction safety, multi-tier checkout paths, and unified resource planners tailored around your company logic.',
-      image: 'assets/images/services/website_development.jpg',
       cta: 'Explore Our Services',
       tab: 'services'
     },
     {
       title: 'Cognitive AI Systems & Process Automation',
       desc: 'Unifying neural models, document semantic searches, conversational helpers, and cloud-native serverless clusters to accelerate operations.',
-      image: 'assets/images/services/data_analytics.jpg',
-      cta: 'Meet Our Tech Leaders',
-      tab: 'team'
+      cta: 'Book A Consultation',
+      tab: 'contact'
     }
   ];
 
   const handleCtaClick = (tabName: string) => {
     setActiveTab(tabName);
     setSelectedServiceId(null);
-    setSelectedProjectId(null);
-    setSelectedBlogSlug(null);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handleSelectService = (id: string | null) => {
     setSelectedServiceId(id);
     setActiveTab('services');
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
-
-  const handleSelectProject = (id: string | null) => {
-    setSelectedProjectId(id);
-    setActiveTab('portfolio');
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
-
-  const handleSelectBlog = (slug: string | null) => {
-    setSelectedBlogSlug(slug);
-    setActiveTab('blog');
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -146,11 +124,7 @@ export const FrontendPages: React.FC<FrontendPagesProps> = ({
               { label: 'Home', tab: 'home' },
               { label: 'About', tab: 'about' },
               { label: 'Services', tab: 'services' },
-              { label: 'Portfolio', tab: 'portfolio' },
-              { label: 'Pricing', tab: 'pricing' },
-              { label: 'Careers', tab: 'careers' },
-              { label: 'Blog', tab: 'blog' },
-              { label: 'Inquiries', tab: 'contact' }
+              { label: 'Contact', tab: 'contact' }
             ].map(item => (
               <button
                 key={item.tab}
@@ -197,15 +171,10 @@ export const FrontendPages: React.FC<FrontendPagesProps> = ({
           <div id="home-view" className="space-y-16 pb-16">
             
             {/* HERO SLIDER SECTION */}
-            <section className="relative h-[480px] bg-brand-dark overflow-hidden">
-              <div className="absolute inset-0">
-                <img
-                  src={slides[activeSlide].image}
-                  alt="Slide Visual"
-                  className="w-full h-full object-cover opacity-35 transition-all duration-700"
-                  referrerPolicy="no-referrer"
-                />
-                <div className="absolute inset-0 bg-gradient-to-r from-brand-dark via-brand-dark/80 to-transparent"></div>
+            <section className="relative h-[480px] bg-slate-950 bg-gradient-to-br from-slate-950 via-blue-950 to-slate-900 overflow-hidden">
+              <div className="absolute inset-0 opacity-40">
+                <div className="absolute top-10 left-10 w-72 h-72 rounded-full bg-blue-500/20 blur-3xl"></div>
+                <div className="absolute bottom-10 right-10 w-96 h-96 rounded-full bg-indigo-500/10 blur-3xl"></div>
               </div>
 
               <div className="relative z-10 max-w-7xl mx-auto px-4 h-full flex flex-col justify-center">
@@ -276,13 +245,29 @@ export const FrontendPages: React.FC<FrontendPagesProps> = ({
 
             {/* COMPANY INTRODUCTION SECTION */}
             <section className="max-w-7xl mx-auto px-4 grid md:grid-cols-2 gap-12 items-center">
-              <div className="rounded-2xl overflow-hidden aspect-video shadow-md bg-slate-100">
-                <img
-                  src="assets/images/backgrounds/about_section.jpg"
-                  alt="Corporate Teamwork"
-                  className="w-full h-full object-cover"
-                  referrerPolicy="no-referrer"
-                />
+              <div className="bg-slate-900 text-white rounded-3xl p-8 space-y-6 shadow-lg border border-slate-800">
+                <h3 className="text-lg font-display font-bold border-b border-slate-800 pb-3">AdSpark Capabilities</h3>
+                <div className="grid grid-cols-2 gap-4 text-slate-300">
+                  <div className="flex items-center gap-2 text-xs">
+                    <Lucide.Cpu className="text-brand-blue" size={16} />
+                    <span>Bespoke Engineering</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-xs">
+                    <Lucide.BrainCircuit className="text-brand-blue" size={16} />
+                    <span>AI Implementations</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-xs">
+                    <Lucide.ShieldCheck className="text-brand-blue" size={16} />
+                    <span>Enterprise Security</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-xs">
+                    <Lucide.TrendingUp className="text-brand-blue" size={16} />
+                    <span>99.9% Service SLA</span>
+                  </div>
+                </div>
+                <p className="text-xs text-slate-400 italic">
+                  *Engineering high-trust systems that streamline operational workflows securely.
+                </p>
               </div>
               <div className="space-y-5">
                 <span className="text-xs font-bold text-brand-blue uppercase tracking-widest bg-blue-50 px-3 py-1 rounded-full">
@@ -359,62 +344,7 @@ export const FrontendPages: React.FC<FrontendPagesProps> = ({
               </div>
             </section>
 
-            {/* PORTFOLIO HOME SECTION (Pulls featured projects) */}
-            <section className="max-w-7xl mx-auto px-4 space-y-8 bg-white border border-slate-100 py-12 rounded-3xl shadow-sm">
-              <div className="text-center max-w-2xl mx-auto space-y-3">
-                <span className="text-xs font-bold text-brand-blue uppercase tracking-widest bg-blue-50 px-3 py-1 rounded-full">
-                  Work Showcase
-                </span>
-                <h2 className="text-2xl md:text-3xl font-display font-bold text-slate-900 tracking-tight">
-                  Engineered Products & Deliveries
-                </h2>
-                <p className="text-slate-500 text-sm leading-relaxed">
-                  A snapshot of the custom corporate applications, e-commerce networks, and analytical interfaces built by AdSpark developers.
-                </p>
-              </div>
 
-              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6 px-4">
-                {projects.filter(p => p.featured).slice(0, 3).map(proj => (
-                  <div
-                    key={proj.id}
-                    id={`home-project-card-${proj.id}`}
-                    onClick={() => handleSelectProject(proj.id)}
-                    className="group bg-slate-50 border border-slate-100 rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-all cursor-pointer flex flex-col"
-                  >
-                    <div className="h-44 bg-slate-200 overflow-hidden relative">
-                      <img
-                        src={proj.images[0]}
-                        alt={proj.title}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform"
-                        referrerPolicy="no-referrer"
-                      />
-                      <span className="absolute top-4 left-4 bg-brand-blue text-white text-[10px] font-bold px-2 py-0.5 rounded shadow">
-                        {proj.category}
-                      </span>
-                    </div>
-                    <div className="p-5 flex-grow flex flex-col justify-between">
-                      <h3 className="text-base font-display font-bold text-slate-900 group-hover:text-brand-blue transition-colors">
-                        {proj.title}
-                      </h3>
-                      <p className="text-xs text-slate-500 mt-1.5 line-clamp-2">
-                        {proj.description}
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              <div className="text-center">
-                <button
-                  id="home-view-all-portfolio"
-                  onClick={() => handleCtaClick('portfolio')}
-                  className="px-5 py-2.5 rounded-xl border border-slate-200 text-slate-700 text-xs font-bold hover:bg-slate-50 transition-all cursor-pointer inline-flex items-center gap-1.5"
-                >
-                  Browse Full Portfolio Catalog
-                  <Lucide.ArrowRight size={14} />
-                </button>
-              </div>
-            </section>
 
             {/* WHY CHOOSE US & PROCESS */}
             <section className="max-w-7xl mx-auto px-4 grid md:grid-cols-2 gap-12 items-start">
@@ -519,49 +449,7 @@ export const FrontendPages: React.FC<FrontendPagesProps> = ({
               </div>
             </section>
 
-            {/* LATEST BLOGS SECTION */}
-            <section className="max-w-7xl mx-auto px-4 space-y-8">
-              <div className="flex justify-between items-end">
-                <div>
-                  <span className="text-xs font-bold text-brand-blue uppercase tracking-widest bg-blue-50 px-3 py-1 rounded-full">
-                    Articles
-                  </span>
-                  <h2 className="text-2xl md:text-3xl font-display font-bold text-slate-900 tracking-tight mt-3">
-                    Latest Insights & Engineering Updates
-                  </h2>
-                </div>
-                <button
-                  id="goto-blogs-btn-home"
-                  onClick={() => handleCtaClick('blog')}
-                  className="text-xs font-bold text-brand-blue hover:underline flex items-center gap-1 cursor-pointer"
-                >
-                  View Blog Directory
-                  <Lucide.ArrowRight size={14} />
-                </button>
-              </div>
 
-              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                {blogs.slice(0, 3).map(b => (
-                  <div
-                    key={b.id}
-                    id={`home-blog-card-${b.id}`}
-                    onClick={() => handleSelectBlog(b.slug)}
-                    className="bg-white border border-slate-100 rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-all cursor-pointer"
-                  >
-                    <div className="h-44 overflow-hidden relative">
-                      <img src={b.featuredImage} alt={b.title} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-                      <span className="absolute top-4 left-4 bg-brand-blue text-white text-[10px] font-bold px-2 py-0.5 rounded shadow">
-                        {b.category}
-                      </span>
-                    </div>
-                    <div className="p-5">
-                      <span className="text-[10px] text-slate-400 font-semibold">{b.publishedAt} • {b.readTime}</span>
-                      <h4 className="font-display font-bold text-slate-900 text-sm mt-1.5 line-clamp-2">{b.title}</h4>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </section>
 
             {/* PARTNERS & CLIENTS PANEL */}
             <section className="max-w-7xl mx-auto px-4 py-6 border-t border-slate-100 text-center">
@@ -623,23 +511,28 @@ export const FrontendPages: React.FC<FrontendPagesProps> = ({
               </p>
             </div>
 
-            <div className="grid md:grid-cols-2 gap-8 items-center pt-4">
-              <div className="space-y-4">
+            <div className="grid md:grid-cols-2 gap-8 items-stretch pt-4">
+              <div className="space-y-4 flex flex-col justify-center">
                 <h3 className="text-xl font-display font-bold text-slate-900">The Blueprint of Our Core Mission</h3>
                 <p className="text-slate-600 text-sm leading-relaxed">
                   At AdSpark Technologies, we do not believe in boilerplate templates or unmonitored deployments. Every software architecture we construct is written from the ground up to support modern security protocols, responsive design grids, and durable cloud synchronization.
                 </p>
                 <p className="text-slate-600 text-sm leading-relaxed">
-                  Our development pod operates globally under the technical supervision of sarah Jenkins and sarah Vance, coordinating daily to solve complex logic challenges for retail pioneers, medical centers, and web growth executives.
+                  Our development pod operates globally under technical supervision, coordinating daily to solve complex logic challenges for retail pioneers, medical centers, and web growth executives.
                 </p>
               </div>
-              <div className="rounded-2xl overflow-hidden aspect-video shadow-md bg-slate-100">
-                <img
-                  src="assets/images/services/digital_marketing.jpg"
-                  alt="Tech team workspace"
-                  className="w-full h-full object-cover"
-                  referrerPolicy="no-referrer"
-                />
+              <div className="rounded-2xl p-8 bg-gradient-to-br from-slate-900 to-slate-800 text-white flex flex-col justify-between shadow-md">
+                <Lucide.Quote className="text-brand-blue opacity-50" size={32} />
+                <p className="text-base italic leading-relaxed font-serif mt-4">
+                  "Engineering is not merely about writing code; it is about establishing scalable structural pillars that support business objectives continuously and securely."
+                </p>
+                <div className="mt-6 border-t border-slate-800 pt-4 flex items-center justify-between">
+                  <div>
+                    <span className="text-xs font-bold block text-white">Engineering Leadership</span>
+                    <span className="text-[10px] text-slate-400 block mt-0.5">AdSpark Technologies</span>
+                  </div>
+                  <Lucide.Award className="text-brand-blue" size={24} />
+                </div>
               </div>
             </div>
 
@@ -670,192 +563,7 @@ export const FrontendPages: React.FC<FrontendPagesProps> = ({
           />
         )}
 
-        {/* TAB: PORTFOLIO */}
-        {activeTab === 'portfolio' && (
-          <PortfolioView
-            projects={projects}
-            onSelectProject={setSelectedProjectId}
-            selectedProjectId={selectedProjectId}
-            onNavigateToContact={() => handleCtaClick('contact')}
-          />
-        )}
 
-        {/* TAB: PRICING */}
-        {activeTab === 'pricing' && (
-          <div id="pricing-view" className="py-12 max-w-7xl mx-auto px-4 space-y-12">
-            <div className="text-center max-w-2xl mx-auto">
-              <span className="text-xs font-bold text-brand-blue uppercase tracking-widest bg-blue-50 px-3 py-1 rounded-full">
-                SLA Matrices
-              </span>
-              <h1 className="text-3xl md:text-4xl font-display font-bold text-slate-900 tracking-tight mt-3">
-                Transparent Enterprise Pricing
-              </h1>
-              <p className="text-slate-500 text-sm leading-relaxed mt-4">
-                We design comprehensive, milestones-based development agreements aligned with exact engineering workloads.
-              </p>
-            </div>
-
-            <div className="grid md:grid-cols-3 gap-8 pt-4">
-              {[
-                {
-                  tier: 'Growth Framework',
-                  price: '$3,500',
-                  desc: 'Perfect for fast corporate websites, product launchers, and landing portfolios.',
-                  features: ['Custom design language & wireframing', 'Responsive grid configuration', 'Standard SEO meta sitemap configs', 'Contact forms Rest synchronization', '3 Months post-launch support']
-                },
-                {
-                  tier: 'Enterprise Solution',
-                  price: '$9,500',
-                  desc: 'Our flagship plan. Tailored mobile app deployments, dynamic storefronts, and API routers.',
-                  features: ['Complete React Native / Node setup', 'Granular state lifecycle tracking', 'Full CRM/API backend integrations', 'Custom database table syncing', 'Email notification systems', '6 Months SLA maintenance support'],
-                  featured: true
-                },
-                {
-                  tier: 'Architect Cognitive AI',
-                  price: '$25,000+',
-                  desc: 'High-end cognitive workflows incorporating advanced Large Language models.',
-                  features: ['Gemini system-prompt engineering', 'Document categorization logic', 'Custom vector data integrations', 'Auto-scaling VPC server configs', '24/7 dedicated support hotline', '1 Year SLA monitoring retainer']
-                }
-              ].map((tier, idx) => (
-                <div
-                  key={idx}
-                  className={`p-6 border rounded-2xl flex flex-col justify-between shadow-sm ${
-                    tier.featured
-                      ? 'border-brand-blue bg-blue-50/10 scale-102 ring-2 ring-brand-blue/15'
-                      : 'border-slate-100 bg-white'
-                  }`}
-                >
-                  <div className="space-y-4">
-                    <div>
-                      {tier.featured && (
-                        <span className="text-[9px] font-bold text-white bg-brand-blue uppercase px-2 py-0.5 rounded-full mb-2 inline-block">
-                          Most Requested
-                        </span>
-                      )}
-                      <h3 className="text-lg font-display font-bold text-slate-900 block">{tier.tier}</h3>
-                      <span className="text-3xl font-display font-bold text-slate-900 block mt-2">
-                        {tier.price}
-                      </span>
-                      <p className="text-slate-500 text-xs mt-2 leading-relaxed">{tier.desc}</p>
-                    </div>
-
-                    <ul className="space-y-2 pt-4 border-t border-slate-100 text-xs text-slate-600">
-                      {tier.features.map((feat, fIdx) => (
-                        <li key={fIdx} className="flex items-start gap-2">
-                          <Lucide.CheckCircle2 className="text-brand-blue shrink-0 mt-0.5" size={14} />
-                          <span>{feat}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-
-                  <button
-                    id={`pricing-select-${tier.tier.toLowerCase().replace(/\s+/g, '-')}`}
-                    onClick={() => handleCtaClick('contact')}
-                    className={`w-full py-2.5 px-4 rounded-xl text-center font-semibold text-xs mt-8 transition-all cursor-pointer ${
-                      tier.featured
-                        ? 'bg-brand-blue text-white shadow hover:bg-opacity-95'
-                        : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-                    }`}
-                  >
-                    Discuss This Plan
-                  </button>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* TAB: TEAM */}
-        {activeTab === 'team' && (
-          <div id="team-view" className="py-12 max-w-5xl mx-auto px-4 space-y-12">
-            <div className="text-center max-w-2xl mx-auto">
-              <span className="text-xs font-bold text-brand-blue uppercase tracking-widest bg-blue-50 px-3 py-1 rounded-full">
-                Engineering Brains
-              </span>
-              <h1 className="text-3xl md:text-4xl font-display font-bold text-slate-900 tracking-tight mt-3">
-                Our Professional Development Pod
-              </h1>
-              <p className="text-slate-500 text-sm leading-relaxed mt-4">
-                We are a meticulous team of software architects, creative systems designers, and AI implementation specialists.
-              </p>
-            </div>
-
-            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6 pt-4">
-              {team.map(member => (
-                <div key={member.id} className="bg-white border border-slate-100 rounded-2xl p-6 shadow-sm text-center space-y-4 flex flex-col justify-between">
-                  <div className="space-y-4">
-                    <div className="w-24 h-24 rounded-full overflow-hidden mx-auto bg-slate-100 shadow border-2 border-brand-blue/20">
-                      <img src={member.image} alt={member.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-                    </div>
-                    <div>
-                      <h3 className="font-display font-bold text-slate-900 text-base">{member.name}</h3>
-                      <span className="text-xs font-semibold text-brand-blue bg-blue-50 px-2.5 py-0.5 rounded-full uppercase mt-1 inline-block">
-                        {member.role}
-                      </span>
-                      <p className="text-slate-500 text-xs leading-relaxed mt-3 px-2 font-normal">
-                        {member.bio}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="flex justify-center gap-3 pt-3 border-t">
-                    {member.socials.linkedin && (
-                      <a href={member.socials.linkedin} target="_blank" rel="noreferrer" className="text-slate-400 hover:text-brand-blue">
-                        <Lucide.Linkedin size={18} />
-                      </a>
-                    )}
-                    {member.socials.github && (
-                      <a href={member.socials.github} target="_blank" rel="noreferrer" className="text-slate-400 hover:text-slate-900">
-                        <Lucide.Github size={18} />
-                      </a>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* TAB: CAREERS */}
-        {activeTab === 'careers' && (
-          <CareerJobs careers={careers} onRefreshData={onRefreshData} />
-        )}
-
-        {/* TAB: BLOG */}
-        {activeTab === 'blog' && (
-          <BlogView
-            blogs={blogs}
-            onSelectBlog={setSelectedBlogSlug}
-            selectedBlogSlug={selectedBlogSlug}
-            onRefreshData={onRefreshData}
-          />
-        )}
-
-        {/* TAB: GALLERY */}
-        {activeTab === 'gallery' && (
-          <div id="gallery-view" className="py-12 max-w-5xl mx-auto px-4 space-y-8">
-            <div className="text-center max-w-xl mx-auto">
-              <span className="text-xs font-bold text-brand-blue uppercase tracking-widest bg-blue-50 px-3 py-1 rounded-full">
-                Workspace Media
-              </span>
-              <h1 className="text-3xl font-display font-bold text-slate-900 tracking-tight mt-3">Office Media & Summit Gallery</h1>
-            </div>
-
-            <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-4">
-              {gallery.map(item => (
-                <div key={item.id} className="group relative rounded-2xl overflow-hidden aspect-square bg-slate-100 shadow-sm border border-slate-100">
-                  <img src={item.image} alt={item.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" referrerPolicy="no-referrer" />
-                  <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-transparent to-transparent opacity-0 group-hover:opacity-90 transition-opacity flex flex-col justify-end p-4 text-white">
-                    <span className="text-[10px] font-bold text-brand-blue uppercase tracking-wider">{item.category}</span>
-                    <h4 className="font-display font-bold text-sm mt-0.5 leading-snug">{item.title}</h4>
-                    {item.description && <p className="text-[11px] text-slate-300 font-normal mt-1 leading-snug">{item.description}</p>}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
 
         {/* TAB: CLIENTS */}
         {activeTab === 'clients' && (
@@ -939,13 +647,13 @@ export const FrontendPages: React.FC<FrontendPagesProps> = ({
           <div className="space-y-3">
             <h4 className="font-display font-bold text-white text-xs uppercase tracking-wider">Company Directory</h4>
             <ul className="space-y-1.5 text-xs">
-              {['home', 'about', 'team', 'careers', 'pricing'].map(tab => (
+              {['home', 'about', 'contact'].map(tab => (
                 <li key={tab}>
                   <button
                     onClick={() => handleCtaClick(tab)}
                     className="hover:text-brand-blue cursor-pointer capitalize"
                   >
-                    {tab} page
+                    {tab === 'contact' ? 'Contact' : tab} page
                   </button>
                 </li>
               ))}
@@ -956,7 +664,7 @@ export const FrontendPages: React.FC<FrontendPagesProps> = ({
           <div className="space-y-3">
             <h4 className="font-display font-bold text-white text-xs uppercase tracking-wider">Services & Insights</h4>
             <ul className="space-y-1.5 text-xs">
-              {['services', 'portfolio', 'blog', 'gallery', 'contact'].map(tab => (
+              {['services'].map(tab => (
                 <li key={tab}>
                   <button
                     onClick={() => handleCtaClick(tab)}

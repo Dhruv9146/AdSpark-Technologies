@@ -4,9 +4,9 @@ export interface Service {
   icon: string; // Lucide icon name
   shortDesc: string;
   description: string;
-  pricing: string;
   category: string;
-  image: string;
+  pricing?: string;
+  image?: string;
 }
 
 export interface Project {
@@ -20,7 +20,7 @@ export interface Project {
   liveLink?: string;
   githubLink?: string;
   description: string;
-  images: string[]; // Support multiple images
+  images?: string[]; // Support multiple images
   featured: boolean;
 }
 
@@ -32,7 +32,7 @@ export interface Blog {
   tags: string[];
   summary: string;
   content: string; // HTML or Markdown format
-  featuredImage: string;
+  featuredImage?: string;
   author: string;
   authorRole: string;
   publishedAt: string;
@@ -104,7 +104,7 @@ export interface Testimonial {
   company: string;
   feedback: string;
   rating: number;
-  image: string;
+  image?: string;
 }
 
 export interface ClientPartner {
@@ -117,7 +117,7 @@ export interface ClientPartner {
 export interface GalleryItem {
   id: string;
   title: string;
-  image: string;
+  image?: string;
   category: string;
   description?: string;
 }
@@ -127,7 +127,7 @@ export interface TeamMember {
   name: string;
   role: string;
   bio: string;
-  image: string;
+  image?: string;
   socials: {
     linkedin?: string;
     twitter?: string;

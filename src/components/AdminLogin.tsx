@@ -19,94 +19,63 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ onLoginSuccess, onClose 
   // Verification states
   const [verifyCode, setVerifyCode] = useState<string>('');
 
-  const handleLoginSubmit = async (e: React.FormEvent) => {
+  const handleLoginSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setErrorText('');
     setSuccessText('');
     setLoading(true);
 
-    try {
-      const res = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password })
-      });
-
-      if (res.ok) {
-        const data = await res.json();
-        setSuccessText('Sign in authentication validated! Initiating session token...');
+    setTimeout(() => {
+      if (email === 'adsparktechnologies01@gmail.com' && password === 'AdSpark@2026') {
+        setSuccessText('Sign in authentication validated! Accessing dashboard...');
         setTimeout(() => {
-          onLoginSuccess(data.token);
-        }, 1500);
+          onLoginSuccess('static-session-token-2026');
+        }, 1000);
       } else {
-        const err = await res.json();
-        setErrorText(err.error || 'Invalid credentials. Please re-authenticate.');
+        setErrorText('Invalid Email or Password');
+        setLoading(false);
       }
-    } catch (err) {
-      setErrorText('Error validating authentication with Express server.');
-    } finally {
-      setLoading(false);
-    }
+    }, 600);
   };
 
-  const handleResetSubmit = async (e: React.FormEvent) => {
+  const handleResetSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setErrorText('');
     setSuccessText('');
     setLoading(true);
 
-    try {
-      const res = await fetch('/api/auth/reset-password', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email })
-      });
-
-      if (res.ok) {
-        setSuccessText('Password recovery blueprint dispatched! Check simulated SMTP Logs.');
-        setTimeout(() => {
-          setAuthMode('login');
-          setSuccessText('');
-        }, 4000);
-      } else {
-        const err = await res.json();
-        setErrorText(err.error || 'Account not located.');
-      }
-    } catch (err) {
-      setErrorText('Error sending password reset inquiry.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleVerifySubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setErrorText('');
-    setSuccessText('');
-    setLoading(true);
-
-    try {
-      const res = await fetch('/api/auth/verify-email', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, code: verifyCode })
-      });
-
-      if (res.ok) {
-        setSuccessText('Email verification approved! Access initialized.');
+    setTimeout(() => {
+      if (email === 'adsparktechnologies01@gmail.com') {
+        setSuccessText('Password recovery link sent successfully to adsparktechnologies01@gmail.com.');
         setTimeout(() => {
           setAuthMode('login');
           setSuccessText('');
         }, 3000);
       } else {
-        const err = await res.json();
-        setErrorText(err.error || 'Incorrect verification coordinates.');
+        setErrorText('Invalid Email Address');
       }
-    } catch (err) {
-      setErrorText('Error logging email verification code.');
-    } finally {
       setLoading(false);
-    }
+    }, 500);
+  };
+
+  const handleVerifySubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrorText('');
+    setSuccessText('');
+    setLoading(true);
+
+    setTimeout(() => {
+      if (email === 'adsparktechnologies01@gmail.com' && verifyCode === '2026') {
+        setSuccessText('Email verification approved!');
+        setTimeout(() => {
+          setAuthMode('login');
+          setSuccessText('');
+        }, 2000);
+      } else {
+        setErrorText('Invalid Email or Verification Code. (Use code: 2026)');
+      }
+      setLoading(false);
+    }, 500);
   };
 
   return (

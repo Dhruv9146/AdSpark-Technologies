@@ -93,20 +93,19 @@ export default function App() {
   const [showLoginModal, setShowLoginModal] = useState<boolean>(false);
   const [isAdminView, setIsAdminView] = useState<boolean>(false);
 
-  // Load database from full-stack Express API
-  const fetchDatabase = async () => {
+  // Load database from Local Storage for purely static zero-dependency operation
+  const fetchDatabase = () => {
     try {
-      const res = await fetch('/api/db');
-      if (res.ok) {
-        const payload = await res.json();
-        setData(payload);
+      const stored = localStorage.getItem('adspark_db');
+      if (stored) {
+        setData(JSON.parse(stored));
       } else {
-        console.warn('Backend returned non-ok status, using local fallback.');
-        setData(prev => prev || fallbackData);
+        localStorage.setItem('adspark_db', JSON.stringify(fallbackData));
+        setData(fallbackData);
       }
     } catch (err) {
-      console.error('Error synchronizing database, using local fallback:', err);
-      setData(prev => prev || fallbackData);
+      console.error('Error synchronizing local database, using fallback:', err);
+      setData(fallbackData);
     } finally {
       setLoading(false);
     }
