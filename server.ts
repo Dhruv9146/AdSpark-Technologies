@@ -205,7 +205,7 @@ function logAction(adminEmail: string, action: string, details: string, req: exp
     adminEmail,
     action,
     details,
-    ipAddress: req.ip || '127.0.0.1',
+    ipAddress: req.ip || '::1',
     timestamp: new Date().toISOString()
   };
   DB.logs.unshift(newLog);
@@ -260,7 +260,7 @@ app.post('/api/auth/login', (req, res) => {
   const emailLower = email.trim().toLowerCase();
 
   // Check brute force protection
-  if (isLockedOut(emailLower) || isLockedOut(req.ip || '127.0.0.1')) {
+  if (isLockedOut(emailLower) || isLockedOut(req.ip || '::1')) {
     return res.status(429).json({ error: 'Too many failed attempts. Account locked. Try again after 15 minutes.' });
   }
 
@@ -290,7 +290,7 @@ app.post('/api/auth/login', (req, res) => {
 
       // Reset brute force
       resetFailedAttempts(emailLower);
-      resetFailedAttempts(req.ip || '127.0.0.1');
+      resetFailedAttempts(req.ip || '::1');
 
       logAction(emailLower, 'User Authentication', 'Admin logged in successfully', req);
 
@@ -304,7 +304,7 @@ app.post('/api/auth/login', (req, res) => {
 
   // Record failed attempts
   recordFailedAttempt(emailLower);
-  recordFailedAttempt(req.ip || '127.0.0.1');
+  recordFailedAttempt(req.ip || '::1');
 
   // Generic error message without revealing field
   return res.status(401).json({ error: 'Invalid email or password' });
@@ -320,7 +320,7 @@ app.post('/api/auth/forgot-password', (req, res) => {
   const emailLower = email.trim().toLowerCase();
 
   // Check brute force for email
-  if (isLockedOut(emailLower) || isLockedOut(req.ip || '127.0.0.1')) {
+  if (isLockedOut(emailLower) || isLockedOut(req.ip || '::1')) {
     return res.status(429).json({ error: 'Too many failed attempts. Try again after 15 minutes.' });
   }
 
@@ -363,14 +363,14 @@ app.post('/api/auth/reset-password', (req, res) => {
   const emailLower = email.trim().toLowerCase();
 
   // Check brute force
-  if (isLockedOut(emailLower) || isLockedOut(req.ip || '127.0.0.1')) {
+  if (isLockedOut(emailLower) || isLockedOut(req.ip || '::1')) {
     return res.status(429).json({ error: 'Too many failed attempts. Try again after 15 minutes.' });
   }
 
   const record = resetCodesRegistry.get(emailLower);
   if (!record || record.code !== code.trim() || Date.now() > record.expiresAt) {
     recordFailedAttempt(emailLower);
-    recordFailedAttempt(req.ip || '127.0.0.1');
+    recordFailedAttempt(req.ip || '::1');
     return res.status(400).json({ error: 'Invalid or expired verification code' });
   }
 
@@ -998,7 +998,7 @@ app.post('/api/copilot/generate', async (req, res) => {
 // 15. SEO Features XML Sitemaps & robots.txt
 app.get('/sitemap.xml', (req, res) => {
   res.setHeader('Content-Type', 'application/xml');
-  const baseUrl = process.env.APP_URL || `http://localhost:${PORT}`;
+  const baseUrl = process.env.APP_URL || `${req.protocol}://${req.get('host')}`;
   let xml = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n`;
   
   // Static pages
@@ -1028,7 +1028,7 @@ app.get('/sitemap.xml', (req, res) => {
 
 app.get('/robots.txt', (req, res) => {
   res.setHeader('Content-Type', 'text/plain');
-  const baseUrl = process.env.APP_URL || `http://localhost:${PORT}`;
+  const baseUrl = process.env.APP_URL || `${req.protocol}://${req.get('host')}`;
   res.send(`User-agent: *\nDisallow: /api/\nDisallow: /admin\n\nSitemap: ${baseUrl}/sitemap.xml`);
 });
 
@@ -1037,6 +1037,26 @@ app.use('/src/assets/images', express.static(path.join(process.cwd(), 'src/asset
 
 // Vite server development middleware setup
 async function startServer() {
+  // Catchall for unmatched API paths to prevent HTML leakage
+  app.all('/api/*', (req, res) => {
+    res.status(404).json({
+      success: false,
+      message: `API endpoint ${req.method} ${req.path} not found.`
+    });
+  });
+
+  // Global Error Handler for API requests to avoid returning HTML errors
+  app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+    console.error('[Unhandled Server Error]', err);
+    if (req.path.startsWith('/api/')) {
+      return res.status(err.status || 500).json({
+        success: false,
+        message: err.message || 'An unexpected server error occurred. Please try again later.'
+      });
+    }
+    next(err);
+  });
+
   if (process.env.NODE_ENV !== 'production') {
     const vite = await createViteServer({
       server: { middlewareMode: true },
@@ -1053,7 +1073,7 @@ async function startServer() {
   }
 
   app.listen(PORT, '0.0.0.0', () => {
-    console.log(`[AdSpark Corporate CMS] Server listening on http://localhost:${PORT} in ${process.env.NODE_ENV || 'development'} mode.`);
+    console.log(`[AdSpark Corporate CMS] Server listening on port ${PORT} in ${process.env.NODE_ENV || 'development'} mode.`);
   });
 }
 

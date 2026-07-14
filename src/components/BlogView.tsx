@@ -73,8 +73,13 @@ export const BlogView: React.FC<BlogViewProps> = ({
         onRefreshData();
         setTimeout(() => setCommentStatus(''), 4000);
       } else {
-        const err = await res.json();
-        setCommentStatus(`Error: ${err.error || 'Failed to post'}`);
+        const contentType = res.headers.get('content-type');
+        if (contentType && contentType.includes('application/json')) {
+          const err = await res.json();
+          setCommentStatus(`Error: ${err.error || 'Failed to post'}`);
+        } else {
+          setCommentStatus('Failed to post comment. Server returned an invalid response.');
+        }
       }
     } catch (err) {
       console.error(err);

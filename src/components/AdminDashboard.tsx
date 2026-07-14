@@ -158,7 +158,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         adminEmail: currentUser.email,
         action,
         details,
-        ipAddress: '127.0.0.1',
+        ipAddress: '::1',
         timestamp: new Date().toISOString().replace('T', ' ').substring(0, 19)
       };
       db.logs = [log, ...(db.logs || [])];
@@ -305,7 +305,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         adminEmail: currentUser.email,
         action,
         details,
-        ipAddress: '127.0.0.1',
+        ipAddress: '::1',
         timestamp: new Date().toISOString().replace('T', ' ').substring(0, 19)
       };
       db.logs = [log, ...(db.logs || [])];
@@ -435,7 +435,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         adminEmail: currentUser.email,
         action: 'Replied to Inquiry',
         details: `Sent reply to ${selectedInquiry.name} (${selectedInquiry.email}) about subject: "${selectedInquiry.subject}"`,
-        ipAddress: '127.0.0.1',
+        ipAddress: '::1',
         timestamp: new Date().toISOString().replace('T', ' ').substring(0, 19)
       };
       db.logs = [log, ...(db.logs || [])];
@@ -463,7 +463,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         adminEmail: currentUser.email,
         action: 'Inquiry Deleted',
         details: `Removed message ID: ${id}`,
-        ipAddress: '127.0.0.1',
+        ipAddress: '::1',
         timestamp: new Date().toISOString().replace('T', ' ').substring(0, 19)
       };
       db.logs = [log, ...(db.logs || [])];

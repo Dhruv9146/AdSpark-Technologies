@@ -69,7 +69,7 @@ export const ContactForm: React.FC<ContactFormProps> = ({ settings, onRefreshDat
           adminEmail: 'visitor@adspark.tech',
           action: 'Contact Inquiry Submitted',
           details: `Inquiry received from ${name} (${email})`,
-          ipAddress: '127.0.0.1',
+          ipAddress: '::1',
           timestamp: new Date().toISOString().replace('T', ' ').substring(0, 19)
         };
         db.logs = [newLog, ...(db.logs || [])];

@@ -229,7 +229,7 @@ export const initialLogs: ActivityLog[] = [
     adminEmail: 'adsparktechnologies01@gmail.com',
     action: 'Seed Initial Database',
     details: 'Pre-populated services and initial settings.',
-    ipAddress: '127.0.0.1',
+    ipAddress: '::1',
     timestamp: '2026-07-13 10:00:00'
   }
 ];
@@ -260,7 +260,7 @@ export const initialAdmins: AdminUser[] = [
     role: 'Super Admin',
     status: 'active',
     lastLoginAt: '2026-07-14 04:00:00',
-    lastLoginIp: '127.0.0.1'
+    lastLoginIp: '::1'
   },
   {
     id: 'usr-2',

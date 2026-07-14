@@ -81,8 +81,13 @@ export const CareerJobs: React.FC<CareerJobsProps> = ({ careers, onRefreshData }
         setFormStatus('Application submitted successfully! Our HR recruiters will contact you shortly.');
         onRefreshData();
       } else {
-        const err = await res.json();
-        setFormStatus(`Submission error: ${err.error || 'Failed to apply'}`);
+        const contentType = res.headers.get('content-type');
+        if (contentType && contentType.includes('application/json')) {
+          const err = await res.json();
+          setFormStatus(`Submission error: ${err.error || 'Failed to apply'}`);
+        } else {
+          setFormStatus('Failed to submit application. Server returned an invalid response.');
+        }
       }
     } catch (err) {
       console.error(err);

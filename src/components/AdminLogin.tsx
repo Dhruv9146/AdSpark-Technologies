@@ -42,10 +42,15 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ onLoginSuccess, onClose 
         body: JSON.stringify({ email, password })
       });
 
+      const contentType = res.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        throw new Error('Our API services are currently initializing. Please wait a few seconds and try again.');
+      }
+
       const result = await res.json();
 
       if (!res.ok) {
-        throw new Error(result.error || 'Invalid email or password');
+        throw new Error(result.error || result.message || 'Invalid email or password');
       }
 
       setSuccessText('Sign in authentication validated! Accessing dashboard...');
@@ -89,10 +94,15 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ onLoginSuccess, onClose 
         body: JSON.stringify({ email })
       });
 
+      const contentType = res.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        throw new Error('Our API services are currently initializing. Please wait a few seconds and try again.');
+      }
+
       const result = await res.json();
 
       if (!res.ok) {
-        throw new Error(result.error || 'An error occurred. Please try again.');
+        throw new Error(result.error || result.message || 'An error occurred. Please try again.');
       }
 
       setSuccessText(result.message || 'If that email address exists in our system, we have dispatched a secure recovery code.');
@@ -128,10 +138,15 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ onLoginSuccess, onClose 
         body: JSON.stringify({ email, code: verifyCode, newPassword })
       });
 
+      const contentType = res.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        throw new Error('Our API services are currently initializing. Please wait a few seconds and try again.');
+      }
+
       const result = await res.json();
 
       if (!res.ok) {
-        throw new Error(result.error || 'Invalid or expired verification code');
+        throw new Error(result.error || result.message || 'Invalid or expired verification code');
       }
 
       setSuccessText('Password reset successfully! Returning to login...');
