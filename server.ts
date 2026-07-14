@@ -139,23 +139,34 @@ function generateSalt(): string {
 
 // Check and seed admin credentials securely on boot
 if (!DB.adminCredentials) {
-  const seedCredentials = [
-    { email: 'adsparktechnologies01@gmail.com', password: 'AdSpark@2026' },
-    { email: 'admin@adsparktech.com', password: 'AdSparkAdmin@2026' },
-    { email: 'editor@adsparktech.com', password: 'AdSparkEditor@2026' },
-    { email: 'manager@adsparktech.com', password: 'AdSparkManager@2026' }
-  ];
+  DB.adminCredentials = [];
+}
 
-  DB.adminCredentials = seedCredentials.map(sc => {
+const seedCredentials = [
+  { email: 'adsparktechnologies01@gmail.com', password: 'AdSpark@2026' },
+  { email: 'admin@adsparktech.com', password: 'AdSparkAdmin@2026' },
+  { email: 'editor@adsparktech.com', password: 'AdSparkEditor@2026' },
+  { email: 'manager@adsparktech.com', password: 'AdSparkManager@2026' }
+];
+
+let databaseModified = false;
+seedCredentials.forEach(sc => {
+  const emailLower = sc.email.toLowerCase();
+  const exists = DB.adminCredentials.some((c: any) => c.email.toLowerCase() === emailLower);
+  if (!exists) {
     const salt = generateSalt();
-    return {
-      email: sc.email.toLowerCase(),
+    DB.adminCredentials.push({
+      email: emailLower,
       passwordHash: hashPassword(sc.password, salt),
       salt: salt
-    };
-  });
+    });
+    databaseModified = true;
+    console.log(`[SECURITY] Seeding missing admin account: ${emailLower}`);
+  }
+});
+
+if (databaseModified) {
   saveDatabase();
-  console.log('[SECURITY] Admin credentials successfully seeded in backend datastore.');
 }
 
 // -------------------------------------------------------------
@@ -276,14 +287,23 @@ app.get('/api/health', (req, res) => {
 app.post('/api/auth/login', (req, res) => {
   const { email, password } = req.body;
   if (!email || !password) {
-    return res.status(400).json({ error: 'Invalid email or password' });
+    return res.status(400).json({
+      success: false,
+      message: 'Invalid email or password',
+      error: 'Invalid email or password'
+    });
   }
 
   const emailLower = email.trim().toLowerCase();
 
   // Check brute force protection
   if (isLockedOut(emailLower) || isLockedOut(req.ip || '::1')) {
-    return res.status(429).json({ error: 'Too many failed attempts. Account locked. Try again after 15 minutes.' });
+    const lockMsg = 'Too many failed attempts. Account locked. Try again after 15 minutes.';
+    return res.status(429).json({
+      success: false,
+      message: lockMsg,
+      error: lockMsg
+    });
   }
 
   // Find credentials in our secure DB
@@ -318,6 +338,7 @@ app.post('/api/auth/login', (req, res) => {
 
       return res.json({
         success: true,
+        message: 'Login successful',
         token,
         user: adminDetails
       });
@@ -329,7 +350,11 @@ app.post('/api/auth/login', (req, res) => {
   recordFailedAttempt(req.ip || '::1');
 
   // Generic error message without revealing field
-  return res.status(401).json({ error: 'Invalid email or password' });
+  return res.status(401).json({
+    success: false,
+    message: 'Invalid email or password',
+    error: 'Invalid email or password'
+  });
 });
 
 // Forgot Password Handler

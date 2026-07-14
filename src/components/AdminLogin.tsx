@@ -118,10 +118,10 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ onLoginSuccess, onClose 
     setLoading(true);
 
     try {
-      // First verify API availability
-      const isApiAvailable = await checkApiAvailability();
+      // Check API availability first (non-blocking)
+      const isApiAvailable = await checkApiAvailability().catch(() => false);
       if (!isApiAvailable) {
-        throw new Error('The authentication service is temporarily unavailable. Please try again later.');
+        console.warn('API availability check returned false, attempting login anyway...');
       }
 
       const res = await safeFetch('/api/auth/login', {
@@ -171,10 +171,10 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ onLoginSuccess, onClose 
     setLoading(true);
 
     try {
-      // First verify API availability
-      const isApiAvailable = await checkApiAvailability();
+      // Check API availability first (non-blocking)
+      const isApiAvailable = await checkApiAvailability().catch(() => false);
       if (!isApiAvailable) {
-        throw new Error('The authentication service is temporarily unavailable. Please try again later.');
+        console.warn('API availability check returned false, attempting forgot-password anyway...');
       }
 
       const res = await safeFetch('/api/auth/forgot-password', {
@@ -216,10 +216,10 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ onLoginSuccess, onClose 
     setLoading(true);
 
     try {
-      // First verify API availability
-      const isApiAvailable = await checkApiAvailability();
+      // Check API availability first (non-blocking)
+      const isApiAvailable = await checkApiAvailability().catch(() => false);
       if (!isApiAvailable) {
-        throw new Error('The authentication service is temporarily unavailable. Please try again later.');
+        console.warn('API availability check returned false, attempting reset-password anyway...');
       }
 
       const res = await safeFetch('/api/auth/reset-password', {
