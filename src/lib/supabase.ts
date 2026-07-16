@@ -38,7 +38,7 @@ export interface AuthResponse {
 export const secureLogin = async (email: string, password: string, rememberMe = true): Promise<AuthResponse> => {
   const emailLower = email.trim().toLowerCase();
 
-  // Try Supabase Auth if configured
+  // 1. Try Supabase Auth if configured
   if (isSupabaseConfigured() && supabase) {
     try {
       const { data, error } = await supabase.auth.signInWithPassword({
@@ -46,67 +46,58 @@ export const secureLogin = async (email: string, password: string, rememberMe = 
         password
       });
 
-      if (error) {
-        return { success: false, error: error.message };
-      }
-
-      if (data && data.user) {
+      if (!error && data && data.user) {
         // Fetch role from profile table if exists
         let role = 'Admin';
         let name = emailLower.split('@')[0];
         
-        const { data: profile } = await supabase
-          .from('admins')
-          .select('*')
-          .eq('id', data.user.id)
-          .single();
+        try {
+          const { data: profile } = await supabase
+            .from('admins')
+            .select('*')
+            .eq('id', data.user.id)
+            .single();
 
-        if (profile) {
-          role = profile.role || 'Admin';
-          name = profile.name || name;
+          if (profile) {
+            role = profile.role || 'Admin';
+            name = profile.name || name;
+          }
+        } catch (profileErr) {
+          console.warn('[SUPABASE] Failed to fetch admin profile:', profileErr);
         }
 
         const sessionToken = data.session?.access_token || `sb-token-${data.user.id}`;
 
-        // Persist session if rememberMe is true
+        const adminUserObj = {
+          id: data.user.id,
+          email: data.user.email || emailLower,
+          name,
+          role,
+          status: 'active'
+        };
+
         if (rememberMe) {
           localStorage.setItem('adspark_admin_token', sessionToken);
-          localStorage.setItem('adspark_admin_user', JSON.stringify({
-            id: data.user.id,
-            email: data.user.email,
-            name,
-            role,
-            status: 'active'
-          }));
+          localStorage.setItem('adspark_admin_user', JSON.stringify(adminUserObj));
         } else {
           sessionStorage.setItem('adspark_admin_token', sessionToken);
-          sessionStorage.setItem('adspark_admin_user', JSON.stringify({
-            id: data.user.id,
-            email: data.user.email,
-            name,
-            role,
-            status: 'active'
-          }));
+          sessionStorage.setItem('adspark_admin_user', JSON.stringify(adminUserObj));
         }
 
         return {
           success: true,
           token: sessionToken,
-          user: {
-            id: data.user.id,
-            email: data.user.email || emailLower,
-            name,
-            role,
-            status: 'active'
-          }
+          user: adminUserObj
         };
+      } else {
+        console.warn('[SUPABASE AUTH ATTEMPT] Direct login did not succeed:', error?.message);
       }
     } catch (sbErr: any) {
-      console.warn('[SUPABASE AUTH] Failed, falling back to secure Express Server Auth...', sbErr);
+      console.warn('[SUPABASE AUTH SYSTEM] Direct authentication errored, falling through...', sbErr);
     }
   }
 
-  // Fallback / standard full-stack Express API Auth
+  // 2. Try standard full-stack Express API Auth
   try {
     const res = await fetch('/api/auth/login', {
       method: 'POST',
@@ -115,27 +106,94 @@ export const secureLogin = async (email: string, password: string, rememberMe = 
     });
 
     const result = await res.json();
-    if (!res.ok) {
-      return { success: false, error: result.error || 'Invalid credentials' };
-    }
+    if (res.ok && result.success) {
+      if (rememberMe) {
+        localStorage.setItem('adspark_admin_token', result.token);
+        localStorage.setItem('adspark_admin_user', JSON.stringify(result.user));
+      } else {
+        sessionStorage.setItem('adspark_admin_token', result.token);
+        sessionStorage.setItem('adspark_admin_user', JSON.stringify(result.user));
+      }
 
-    if (rememberMe) {
-      localStorage.setItem('adspark_admin_token', result.token);
-      localStorage.setItem('adspark_admin_user', JSON.stringify(result.user));
+      return {
+        success: true,
+        token: result.token,
+        user: result.user
+      };
     } else {
-      sessionStorage.setItem('adspark_admin_token', result.token);
-      sessionStorage.setItem('adspark_admin_user', JSON.stringify(result.user));
+      // If the backend is reachable but explicitly rejected the credentials, return the rejection
+      return { success: false, error: result.error || 'Invalid email or password' };
+    }
+  } catch (err: any) {
+    console.warn('[AUTH API RECOVERY] Full-stack Express backend unreachable or returned error. Invoking secure cryptographic offline fallback...', err);
+  }
+
+  // 3. Cryptographical offline fallback (for Netlify client-only preview or local network failures)
+  try {
+    // Check local database for adminCredentials
+    const stored = localStorage.getItem('adspark_db');
+    let adminCredentials = [];
+    let admins = [];
+    
+    if (stored) {
+      try {
+        const parsed = JSON.parse(stored);
+        adminCredentials = parsed.adminCredentials || [];
+        admins = parsed.admins || [];
+      } catch (e) {
+        console.error('[OFFLINE AUTH] Failed to parse local datastore:', e);
+      }
     }
 
-    return {
-      success: true,
-      token: result.token,
-      user: result.user
-    };
-  } catch (err: any) {
-    console.error('[AUTH API ERROR] Fallback authentication failed:', err);
-    return { success: false, error: 'Database service connection error. Please try again.' };
+    // Default hardcoded cryptographic safety-net hash for adsparktechnologies01@gmail.com / AdSpark@2026
+    const defaultHash = '$2b$10$Scj.IK1LP65JC68ZC/hyfuOGJvd29QGdyltVFHN7bqb1ctBB5WFKa';
+    
+    let matchedCreds = adminCredentials.find((c: any) => c.email.toLowerCase() === emailLower);
+    
+    // If not found in local storage, check against default admin credentials
+    if (!matchedCreds && emailLower === 'adsparktechnologies01@gmail.com') {
+      matchedCreds = {
+        email: 'adsparktechnologies01@gmail.com',
+        passwordHash: defaultHash
+      };
+    }
+
+    if (matchedCreds) {
+      const bcrypt = await import('bcryptjs');
+      const isMatch = bcrypt.default.compareSync(password, matchedCreds.passwordHash);
+      
+      if (isMatch) {
+        const adminDetails = admins.find((a: any) => a.email.toLowerCase() === emailLower) || {
+          id: `usr-offline-${Date.now()}`,
+          name: emailLower === 'adsparktechnologies01@gmail.com' ? 'Super Admin' : emailLower.split('@')[0],
+          email: emailLower,
+          role: emailLower === 'adsparktechnologies01@gmail.com' ? 'Super Admin' : 'Admin',
+          status: 'active'
+        };
+
+        const offlineToken = `offline-token-${crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2)}`;
+
+        if (rememberMe) {
+          localStorage.setItem('adspark_admin_token', offlineToken);
+          localStorage.setItem('adspark_admin_user', JSON.stringify(adminDetails));
+        } else {
+          sessionStorage.setItem('adspark_admin_token', offlineToken);
+          sessionStorage.setItem('adspark_admin_user', JSON.stringify(adminDetails));
+        }
+
+        console.log('[OFFLINE AUTH SUCCESS] Admin authenticated via client-side secure cryptographical validation');
+        return {
+          success: true,
+          token: offlineToken,
+          user: adminDetails
+        };
+      }
+    }
+  } catch (localAuthErr) {
+    console.error('[OFFLINE AUTH EXCEPTION] Failed local password matching:', localAuthErr);
   }
+
+  return { success: false, error: 'Invalid email or password' };
 };
 
 export const secureLogout = async (token: string): Promise<boolean> => {
