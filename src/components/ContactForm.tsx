@@ -86,7 +86,8 @@ export const ContactForm: React.FC<ContactFormProps> = ({ settings, onRefreshDat
           name,
           email,
           subject: subject || (isProposalRequest ? 'New Tech Proposal Request' : 'General IT Business Query'),
-          message
+          message,
+          skipSupabase: isSupabaseConfigured()
         })
       });
 

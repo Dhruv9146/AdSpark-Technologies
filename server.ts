@@ -7,9 +7,144 @@ import dotenv from 'dotenv';
 import crypto from 'crypto';
 import bcrypt from 'bcryptjs';
 import nodemailer from 'nodemailer';
+import { createClient } from '@supabase/supabase-js';
 
 // Load environment variables
 dotenv.config();
+
+// -------------------------------------------------------------
+// SERVER-SIDE SUPABASE CLIENT INITIALIZATION & DATA FETCHING
+// -------------------------------------------------------------
+let serverSupabaseClient: any = null;
+
+function getSupabaseServerClient() {
+  if (serverSupabaseClient !== null) return serverSupabaseClient;
+
+  const url = process.env.VITE_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY;
+
+  if (url && key && url !== 'YOUR_SUPABASE_URL') {
+    try {
+      serverSupabaseClient = createClient(url, key, {
+        auth: {
+          persistSession: false,
+          autoRefreshToken: false
+        }
+      });
+      console.log('[SUPABASE] Server-side Supabase client initialized.');
+    } catch (err) {
+      console.error('[SUPABASE] Failed to initialize server-side Supabase client:', err);
+    }
+  }
+  return serverSupabaseClient;
+}
+
+async function fetchSupabaseData() {
+  const client = getSupabaseServerClient();
+  if (!client) return null;
+
+  try {
+    const [
+      { data: contacts, error: e1 },
+      { data: proposals, error: e2 },
+      { data: services, error: e3 },
+      { data: portfolio, error: e4 },
+      { data: testimonials, error: e5 },
+      { data: careers, error: e6 },
+      { data: admins, error: e7 },
+      { data: settings, error: e8 }
+    ] = await Promise.all([
+      client.from('contact_requests').select('*').order('created_at', { ascending: false }),
+      client.from('proposal_requests').select('*').order('created_at', { ascending: false }),
+      client.from('services').select('*'),
+      client.from('portfolio').select('*'),
+      client.from('testimonials').select('*'),
+      client.from('careers').select('*'),
+      client.from('admins').select('*'),
+      client.from('settings').select('*')
+    ]);
+
+    if (e1) console.warn('[SUPABASE] Error fetching contact_requests:', e1.message);
+    if (e2) console.warn('[SUPABASE] Error fetching proposal_requests:', e2.message);
+    if (e3) console.warn('[SUPABASE] Error fetching services:', e3.message);
+    if (e4) console.warn('[SUPABASE] Error fetching portfolio:', e4.message);
+    if (e5) console.warn('[SUPABASE] Error fetching testimonials:', e5.message);
+    if (e6) console.warn('[SUPABASE] Error fetching careers:', e6.message);
+    if (e7) console.warn('[SUPABASE] Error fetching admins:', e7.message);
+    if (e8) console.warn('[SUPABASE] Error fetching settings:', e8.message);
+
+    const result: any = {};
+    if (contacts) {
+      result.contact_requests = contacts.map((c: any) => ({
+        id: 'msg-' + c.id,
+        name: c.name,
+        email: c.email,
+        subject: c.subject,
+        message: c.message,
+        status: c.status,
+        submittedAt: c.created_at || c.submittedAt
+      }));
+      result.messages = result.contact_requests;
+    }
+    if (proposals) {
+      result.proposal_requests = proposals.map((p: any) => ({
+        id: 'prop-' + p.id,
+        name: p.name,
+        email: p.email,
+        subject: p.subject,
+        message: p.message,
+        status: p.status,
+        submittedAt: p.created_at || p.submittedAt
+      }));
+    }
+    if (services) {
+      result.services = services;
+    }
+    if (portfolio) {
+      result.projects = portfolio.map((p: any) => ({
+        id: p.id,
+        title: p.title,
+        client: p.client,
+        category: p.category,
+        description: p.description,
+        challenge: p.challenge,
+        solution: p.solution,
+        technologies: p.technologies,
+        live_demo: p.live_demo,
+        github_link: p.github_link,
+        images: p.images
+      }));
+    }
+    if (testimonials) {
+      result.testimonials = testimonials;
+    }
+    if (careers) {
+      result.careers = careers;
+    }
+    if (admins) {
+      result.admins = admins.map((a: any) => ({
+        id: a.id,
+        name: a.name,
+        email: a.email,
+        role: a.role,
+        status: a.status,
+        profilePhoto: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(a.name)}`
+      }));
+    }
+    if (settings) {
+      const companyConfig = settings.find((s: any) => s.key === 'company_config');
+      if (companyConfig) {
+        result.settings = companyConfig.value;
+      }
+    }
+
+    return result;
+  } catch (err) {
+    console.error('[SUPABASE] Data fetch crash:', err);
+    return null;
+  }
+}
+
 
 // Default seed values if database.json doesn't exist yet
 import {
@@ -323,25 +458,26 @@ function sendSimulatedEmail(to: string, subject: string, body: string) {
 // REST APIs
 
 // 0. Complete Database Sync
-app.get('/api/db', (req, res) => {
+app.get('/api/db', async (req, res) => {
+  const sbData = await fetchSupabaseData();
   res.json({
-    services: DB.services,
-    projects: DB.projects,
+    services: sbData?.services || DB.services,
+    projects: sbData?.projects || DB.projects,
     blogs: DB.blogs,
-    careers: DB.careers,
+    careers: sbData?.careers || DB.careers,
     applications: DB.applications,
-    messages: DB.messages || DB.contact_requests || [],
-    contact_requests: DB.contact_requests || DB.messages || [],
-    proposal_requests: DB.proposal_requests || [],
+    messages: sbData?.messages || DB.messages || DB.contact_requests || [],
+    contact_requests: sbData?.contact_requests || DB.contact_requests || DB.messages || [],
+    proposal_requests: sbData?.proposal_requests || DB.proposal_requests || [],
     subscribers: DB.subscribers,
-    admins: DB.admins || [],
-    testimonials: DB.testimonials,
+    admins: sbData?.admins || DB.admins || [],
+    testimonials: sbData?.testimonials || DB.testimonials,
     clients: DB.clients,
     gallery: DB.gallery,
     team: DB.team,
     invoices: DB.invoices,
     seo: DB.seo,
-    settings: DB.settings,
+    settings: sbData?.settings || DB.settings,
     analytics: DB.analytics,
     logs: DB.logs
   });
@@ -519,15 +655,32 @@ app.post('/api/auth/logout', (req, res) => {
 });
 
 // Admin verification middleware
-function requireAdmin(req: any, res: express.Response, next: express.NextFunction) {
+async function requireAdmin(req: any, res: express.Response, next: express.NextFunction) {
   const authHeader = req.headers.authorization;
   if (authHeader && authHeader.startsWith('Bearer ')) {
     const token = authHeader.substring(7);
+    
+    // 1. Try local session
     const session = activeSessions.get(token);
     if (session && Date.now() < session.expiresAt) {
       req.adminEmail = session.email;
       next();
       return;
+    }
+
+    // 2. Try Supabase session
+    const sbClient = getSupabaseServerClient();
+    if (sbClient) {
+      try {
+        const { data: { user }, error } = await sbClient.auth.getUser(token);
+        if (!error && user) {
+          req.adminEmail = user.email;
+          next();
+          return;
+        }
+      } catch (sbErr) {
+        console.warn('[SUPABASE TOKEN AUTH WARN]:', sbErr);
+      }
     }
   }
   res.status(403).json({ error: 'Unauthorized. Admin credentials required.' });
@@ -536,18 +689,56 @@ function requireAdmin(req: any, res: express.Response, next: express.NextFunctio
 // 1.1. Admins Management API (CRUD)
 
 // Helper to check if the current user is a Super Admin
-function requireSuperAdmin(req: any, res: express.Response, next: express.NextFunction) {
+async function requireSuperAdmin(req: any, res: express.Response, next: express.NextFunction) {
   const authHeader = req.headers.authorization;
   if (authHeader && authHeader.startsWith('Bearer ')) {
     const token = authHeader.substring(7);
+    
+    // 1. Try local session
     const session = activeSessions.get(token);
     if (session && Date.now() < session.expiresAt) {
-      // Find full user details in DB.admins
       const adminDetails = (DB.admins || []).find((a: any) => a.email.toLowerCase() === session.email.toLowerCase());
       if (adminDetails && adminDetails.role === 'Super Admin') {
         req.adminEmail = session.email;
         next();
         return;
+      }
+    }
+
+    // 2. Try Supabase session
+    const sbClient = getSupabaseServerClient();
+    if (sbClient) {
+      try {
+        const { data: { user }, error } = await sbClient.auth.getUser(token);
+        if (!error && user) {
+          let role = 'Admin';
+          
+          // Query profile role from admins table in Supabase
+          try {
+            const { data: profile } = await sbClient
+              .from('admins')
+              .select('role')
+              .eq('id', user.id)
+              .single();
+            if (profile) {
+              role = profile.role;
+            } else {
+              const adminDetails = (DB.admins || []).find((a: any) => a.email.toLowerCase() === user.email.toLowerCase());
+              if (adminDetails) role = adminDetails.role;
+            }
+          } catch (profileErr) {
+            const adminDetails = (DB.admins || []).find((a: any) => a.email.toLowerCase() === user.email.toLowerCase());
+            if (adminDetails) role = adminDetails.role;
+          }
+
+          if (role === 'Super Admin') {
+            req.adminEmail = user.email;
+            next();
+            return;
+          }
+        }
+      } catch (sbErr) {
+        console.warn('[SUPABASE TOKEN AUTH WARN]:', sbErr);
       }
     }
   }
@@ -560,7 +751,7 @@ app.get('/api/admins', requireAdmin, (req: any, res) => {
 });
 
 // Create new admin
-app.post('/api/admins', requireSuperAdmin, (req: any, res) => {
+app.post('/api/admins', requireSuperAdmin, async (req: any, res) => {
   const { name, email, password, role } = req.body;
   if (!name || !email || !password) {
     return res.status(400).json({ error: 'Name, email, and password are required.' });
@@ -574,8 +765,75 @@ app.post('/api/admins', requireSuperAdmin, (req: any, res) => {
     return res.status(400).json({ error: 'An admin account with this email already exists.' });
   }
 
+  // Create in Supabase Auth if configured
+  const sbClient = getSupabaseServerClient();
+  let supabaseId = null;
+  if (sbClient) {
+    try {
+      // If service role key is provided, use admin API to avoid email confirmation constraints
+      if (process.env.SUPABASE_SERVICE_ROLE_KEY) {
+        const { data: authData, error: authError } = await sbClient.auth.admin.createUser({
+          email: emailLower,
+          password,
+          email_confirm: true,
+          user_metadata: { name, role: role || 'Admin' }
+        });
+        if (authError) {
+          console.error('[SUPABASE ADMIN CREATE ERROR]:', authError);
+          return res.status(400).json({ error: `Supabase Auth error: ${authError.message}` });
+        }
+        supabaseId = authData.user?.id;
+      } else {
+        // Fallback to standard signUp
+        const { data: authData, error: authError } = await sbClient.auth.signUp({
+          email: emailLower,
+          password,
+          options: {
+            data: { name, role: role || 'Admin' }
+          }
+        });
+        if (authError) {
+          console.error('[SUPABASE SIGNUP ERROR]:', authError);
+          return res.status(400).json({ error: `Supabase Auth error: ${authError.message}` });
+        }
+        supabaseId = authData.user?.id;
+      }
+
+      // Sync user to the admins public profile table in Supabase if trigger is not present or slow
+      if (supabaseId) {
+        try {
+          const { data: existingAdmin } = await sbClient
+            .from('admins')
+            .select('*')
+            .eq('id', supabaseId)
+            .single();
+            
+          if (!existingAdmin) {
+            const { error: insertErr } = await sbClient
+              .from('admins')
+              .insert([{
+                id: supabaseId,
+                email: emailLower,
+                name,
+                role: role || 'Admin',
+                status: 'active'
+              }]);
+            if (insertErr) {
+              console.warn('[SUPABASE INSERT ADMIN ERROR]:', insertErr);
+            }
+          }
+        } catch (syncErr) {
+          console.warn('[SUPABASE SYNC ADMIN WARN]:', syncErr);
+        }
+      }
+    } catch (err: any) {
+      console.error('[SUPABASE AUTH INTEGRATION FAILED]:', err);
+      return res.status(500).json({ error: `Supabase integration failed: ${err.message || err}` });
+    }
+  }
+
   const newAdmin = {
-    id: `usr-${Date.now()}`,
+    id: supabaseId || `usr-${Date.now()}`,
     name,
     email: emailLower,
     role: role || 'Admin',
@@ -662,22 +920,40 @@ app.put('/api/admins/:id', requireAdmin, (req: any, res) => {
 });
 
 // Delete admin
-app.delete('/api/admins/:id', requireSuperAdmin, (req: any, res) => {
+app.delete('/api/admins/:id', requireSuperAdmin, async (req: any, res) => {
   const { id } = req.params;
   const index = (DB.admins || []).findIndex((a: any) => a.id === id);
-  if (index === -1) {
+  if (index === -1 && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) {
     return res.status(404).json({ error: 'Admin not found.' });
   }
 
-  const targetAdmin = DB.admins[index];
-  if (targetAdmin.email.toLowerCase() === req.adminEmail.toLowerCase()) {
+  const targetAdmin = DB.admins[index] || { email: '', name: 'Supabase Admin' };
+  if (targetAdmin.email && targetAdmin.email.toLowerCase() === req.adminEmail.toLowerCase()) {
     return res.status(400).json({ error: 'Action Blocked: You cannot delete your own active session.' });
   }
 
+  // Delete from Supabase if configured
+  const sbClient = getSupabaseServerClient();
+  if (sbClient) {
+    try {
+      // 1. Delete from public.admins table
+      await sbClient.from('admins').delete().eq('id', id);
+
+      // 2. Delete from Supabase Auth if service role is available
+      if (process.env.SUPABASE_SERVICE_ROLE_KEY) {
+        await sbClient.auth.admin.deleteUser(id);
+      }
+    } catch (sbErr) {
+      console.error('[SUPABASE DELETE USER ERROR]:', sbErr);
+    }
+  }
+
   // Delete credentials
-  DB.adminCredentials = (DB.adminCredentials || []).filter((c: any) => c.email.toLowerCase() !== targetAdmin.email.toLowerCase());
+  if (targetAdmin.email) {
+    DB.adminCredentials = (DB.adminCredentials || []).filter((c: any) => c.email.toLowerCase() !== targetAdmin.email.toLowerCase());
+  }
   // Delete admin
-  DB.admins = DB.admins.filter((a: any) => a.id !== id);
+  DB.admins = (DB.admins || []).filter((a: any) => a.id !== id);
 
   saveDatabase();
 
@@ -1085,13 +1361,39 @@ app.get('/api/contacts', requireAdmin, (req, res) => {
   res.json(DB.contact_requests || DB.messages || []);
 });
 
-app.post('/api/contacts', (req, res) => {
-  const { name, email, subject, message } = req.body;
+app.post('/api/contacts', async (req, res) => {
+  const { name, email, subject, message, skipSupabase } = req.body;
   if (!name || !email || !message) {
     return res.status(400).json({ error: 'Name, email and message text are required' });
   }
+
+  let dbId = `msg-${Date.now()}`;
+
+  // Save to Supabase if configured and not skipped
+  if (!skipSupabase) {
+    const sbClient = getSupabaseServerClient();
+    if (sbClient) {
+      try {
+        const { data, error } = await sbClient.from('contact_requests').insert([{
+          name,
+          email,
+          subject: subject || 'General IT Business Query',
+          message,
+          status: 'Unread'
+        }]).select('id').single();
+        if (error) {
+          console.error('[SUPABASE CONTACT INSERT ERROR]:', error.message);
+        } else if (data) {
+          dbId = 'msg-' + data.id;
+        }
+      } catch (err) {
+        console.error('[SUPABASE CONTACT INSERT FAILED]:', err);
+      }
+    }
+  }
+
   const newMessage = {
-    id: `msg-${Date.now()}`,
+    id: dbId,
     name,
     email,
     subject: subject || 'General IT Business Query',
@@ -1118,9 +1420,25 @@ app.post('/api/contacts', (req, res) => {
   res.status(201).json(newMessage);
 });
 
-app.put('/api/contacts/:id', requireAdmin, (req, res) => {
+app.put('/api/contacts/:id', requireAdmin, async (req, res) => {
   const { id } = req.params;
   const { status } = req.body;
+  
+  const cleanId = id.replace(/^(msg-|prop-)/, '');
+  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(cleanId);
+
+  // Update in Supabase if configured & UUID
+  if (isUuid) {
+    const sbClient = getSupabaseServerClient();
+    if (sbClient) {
+      try {
+        const { error } = await sbClient.from('contact_requests').update({ status }).eq('id', cleanId);
+        if (error) console.error('[SUPABASE CONTACT UPDATE ERROR]:', error.message);
+      } catch (err) {
+        console.error('[SUPABASE CONTACT UPDATE FAILED]:', err);
+      }
+    }
+  }
   
   if (!DB.contact_requests) DB.contact_requests = [];
   if (!DB.messages) DB.messages = [];
@@ -1138,17 +1456,33 @@ app.put('/api/contacts/:id', requireAdmin, (req, res) => {
     if (!updatedMessage) updatedMessage = DB.messages[idx2];
   }
 
-  if (updatedMessage) {
+  if (updatedMessage || isUuid) {
     saveDatabase();
-    res.json(updatedMessage);
+    res.json(updatedMessage || { id, status });
   } else {
     res.status(404).json({ error: 'Contact message not found' });
   }
 });
 
-app.delete('/api/contacts/:id', requireAdmin, (req, res) => {
+app.delete('/api/contacts/:id', requireAdmin, async (req, res) => {
   const { id } = req.params;
   
+  const cleanId = id.replace(/^(msg-|prop-)/, '');
+  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(cleanId);
+
+  // Delete in Supabase if configured & UUID
+  if (isUuid) {
+    const sbClient = getSupabaseServerClient();
+    if (sbClient) {
+      try {
+        const { error } = await sbClient.from('contact_requests').delete().eq('id', cleanId);
+        if (error) console.error('[SUPABASE CONTACT DELETE ERROR]:', error.message);
+      } catch (err) {
+        console.error('[SUPABASE CONTACT DELETE FAILED]:', err);
+      }
+    }
+  }
+
   if (!DB.contact_requests) DB.contact_requests = [];
   if (!DB.messages) DB.messages = [];
 
@@ -1158,7 +1492,7 @@ app.delete('/api/contacts/:id', requireAdmin, (req, res) => {
   DB.contact_requests = DB.contact_requests.filter((m: any) => m.id !== id);
   DB.messages = DB.messages.filter((m: any) => m.id !== id);
 
-  if (DB.contact_requests.length !== len1 || DB.messages.length !== len2) {
+  if (DB.contact_requests.length !== len1 || DB.messages.length !== len2 || isUuid) {
     saveDatabase();
     res.json({ success: true });
   } else {
@@ -1171,13 +1505,39 @@ app.get('/api/proposals', requireAdmin, (req, res) => {
   res.json(DB.proposal_requests || []);
 });
 
-app.post('/api/proposals', (req, res) => {
-  const { name, email, subject, message } = req.body;
+app.post('/api/proposals', async (req, res) => {
+  const { name, email, subject, message, skipSupabase } = req.body;
   if (!name || !email || !message) {
     return res.status(400).json({ error: 'Name, email and detailed specifications are required' });
   }
+
+  let dbId = `prop-${Date.now()}`;
+
+  // Save to Supabase if configured and not skipped
+  if (!skipSupabase) {
+    const sbClient = getSupabaseServerClient();
+    if (sbClient) {
+      try {
+        const { data, error } = await sbClient.from('proposal_requests').insert([{
+          name,
+          email,
+          subject: subject || 'New Tech Proposal Request',
+          message,
+          status: 'Unread'
+        }]).select('id').single();
+        if (error) {
+          console.error('[SUPABASE PROPOSAL INSERT ERROR]:', error.message);
+        } else if (data) {
+          dbId = 'prop-' + data.id;
+        }
+      } catch (err) {
+        console.error('[SUPABASE PROPOSAL INSERT FAILED]:', err);
+      }
+    }
+  }
+
   const newProposal = {
-    id: `prop-${Date.now()}`,
+    id: dbId,
     name,
     email,
     subject: subject || 'New Tech Proposal Request',
@@ -1200,29 +1560,64 @@ app.post('/api/proposals', (req, res) => {
   res.status(201).json(newProposal);
 });
 
-app.put('/api/proposals/:id', requireAdmin, (req, res) => {
+app.put('/api/proposals/:id', requireAdmin, async (req, res) => {
   const { id } = req.params;
   const { status } = req.body;
   
+  const cleanId = id.replace(/^(msg-|prop-)/, '');
+  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(cleanId);
+
+  // Update in Supabase if configured & UUID
+  if (isUuid) {
+    const sbClient = getSupabaseServerClient();
+    if (sbClient) {
+      try {
+        const { error } = await sbClient.from('proposal_requests').update({ status }).eq('id', cleanId);
+        if (error) console.error('[SUPABASE PROPOSAL UPDATE ERROR]:', error.message);
+      } catch (err) {
+        console.error('[SUPABASE PROPOSAL UPDATE FAILED]:', err);
+      }
+    }
+  }
+
   if (!DB.proposal_requests) DB.proposal_requests = [];
   const idx = DB.proposal_requests.findIndex((p: any) => p.id === id);
   if (idx !== -1) {
     DB.proposal_requests[idx].status = status;
     saveDatabase();
     res.json(DB.proposal_requests[idx]);
+  } else if (isUuid) {
+    saveDatabase();
+    res.json({ id, status });
   } else {
     res.status(404).json({ error: 'Proposal request not found' });
   }
 });
 
-app.delete('/api/proposals/:id', requireAdmin, (req, res) => {
+app.delete('/api/proposals/:id', requireAdmin, async (req, res) => {
   const { id } = req.params;
   
+  const cleanId = id.replace(/^(msg-|prop-)/, '');
+  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(cleanId);
+
+  // Delete in Supabase if configured & UUID
+  if (isUuid) {
+    const sbClient = getSupabaseServerClient();
+    if (sbClient) {
+      try {
+        const { error } = await sbClient.from('proposal_requests').delete().eq('id', cleanId);
+        if (error) console.error('[SUPABASE PROPOSAL DELETE ERROR]:', error.message);
+      } catch (err) {
+        console.error('[SUPABASE PROPOSAL DELETE FAILED]:', err);
+      }
+    }
+  }
+
   if (!DB.proposal_requests) DB.proposal_requests = [];
   const len = DB.proposal_requests.length;
   DB.proposal_requests = DB.proposal_requests.filter((p: any) => p.id !== id);
   
-  if (DB.proposal_requests.length !== len) {
+  if (DB.proposal_requests.length !== len || isUuid) {
     saveDatabase();
     res.json({ success: true });
   } else {

@@ -44,7 +44,7 @@ import { FrontendPages } from './components/FrontendPages';
 import { AdminDashboard } from './components/AdminDashboard';
 import { AdminLogin } from './components/AdminLogin';
 import * as Lucide from 'lucide-react';
-import { secureLogout } from './lib/supabase';
+import { secureLogout, supabase, isSupabaseConfigured } from './lib/supabase';
 
 const fallbackData = {
   services: seedServices,
@@ -118,6 +118,103 @@ export default function App() {
       const res = await fetch('/api/db');
       if (res.ok) {
         const serverData = await res.json();
+
+        // If Supabase is configured, try to sync client-side for immediate consistency
+        if (isSupabaseConfigured() && supabase) {
+          try {
+            // Check if there is an active authenticated session
+            const { data: { session } } = await supabase.auth.getSession();
+            const isAuthenticated = !!session;
+
+            // Fetch public tables first (available to everyone)
+            const [
+              { data: services },
+              { data: portfolio },
+              { data: testimonials },
+              { data: careers }
+            ] = await Promise.all([
+              supabase.from('services').select('*'),
+              supabase.from('portfolio').select('*'),
+              supabase.from('testimonials').select('*'),
+              supabase.from('careers').select('*')
+            ]);
+
+            if (services) {
+              serverData.services = services;
+            }
+            if (portfolio) {
+              serverData.projects = portfolio.map((p: any) => ({
+                id: p.id,
+                title: p.title,
+                client: p.client,
+                category: p.category,
+                description: p.description,
+                challenge: p.challenge,
+                solution: p.solution,
+                technologies: p.technologies,
+                live_demo: p.live_demo,
+                github_link: p.github_link,
+                images: p.images
+              }));
+            }
+            if (testimonials) {
+              serverData.testimonials = testimonials;
+            }
+            if (careers) {
+              serverData.careers = careers;
+            }
+
+            // Fetch and override administrative tables ONLY if authenticated
+            if (isAuthenticated) {
+              const [
+                { data: contacts },
+                { data: proposals },
+                { data: admins }
+              ] = await Promise.all([
+                supabase.from('contact_requests').select('*').order('created_at', { ascending: false }),
+                supabase.from('proposal_requests').select('*').order('created_at', { ascending: false }),
+                supabase.from('admins').select('*')
+              ]);
+
+              if (contacts) {
+                serverData.contact_requests = contacts.map((c: any) => ({
+                  id: 'msg-' + c.id,
+                  name: c.name,
+                  email: c.email,
+                  subject: c.subject,
+                  message: c.message,
+                  status: c.status,
+                  submittedAt: c.created_at || c.submittedAt
+                }));
+                serverData.messages = serverData.contact_requests;
+              }
+              if (proposals) {
+                serverData.proposal_requests = proposals.map((p: any) => ({
+                  id: 'prop-' + p.id,
+                  name: p.name,
+                  email: p.email,
+                  subject: p.subject,
+                  message: p.message,
+                  status: p.status,
+                  submittedAt: p.created_at || p.submittedAt
+                }));
+              }
+              if (admins) {
+                serverData.admins = admins.map((a: any) => ({
+                  id: a.id,
+                  name: a.name,
+                  email: a.email,
+                  role: a.role,
+                  status: a.status,
+                  profilePhoto: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(a.name)}`
+                }));
+              }
+            }
+          } catch (sbErr) {
+            console.warn('[SUPABASE SYNC ERROR] Failed to override client-side dynamic content:', sbErr);
+          }
+        }
+
         setData(serverData);
         localStorage.setItem('adspark_db', JSON.stringify(serverData));
       } else {
@@ -141,6 +238,32 @@ export default function App() {
       setLoading(false);
     }
   };
+
+  // Set up Supabase Realtime subscriptions
+  useEffect(() => {
+    if (isSupabaseConfigured() && supabase) {
+      const contactsChannel = supabase
+        .channel('public:contact_requests')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'contact_requests' }, () => {
+          console.log('[REALTIME] contact_requests change detected. Refreshing...');
+          fetchDatabase();
+        })
+        .subscribe();
+
+      const proposalsChannel = supabase
+        .channel('public:proposal_requests')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'proposal_requests' }, () => {
+          console.log('[REALTIME] proposal_requests change detected. Refreshing...');
+          fetchDatabase();
+        })
+        .subscribe();
+
+      return () => {
+        supabase.removeChannel(contactsChannel);
+        supabase.removeChannel(proposalsChannel);
+      };
+    }
+  }, [adminToken]);
 
   useEffect(() => {
     fetchDatabase();
