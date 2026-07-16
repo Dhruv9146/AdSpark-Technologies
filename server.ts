@@ -5,6 +5,7 @@ import { createServer as createViteServer } from 'vite';
 import { GoogleGenAI } from '@google/genai';
 import dotenv from 'dotenv';
 import crypto from 'crypto';
+import bcrypt from 'bcryptjs';
 
 // Load environment variables
 dotenv.config();
@@ -127,35 +128,38 @@ function saveDatabase() {
 loadDatabase();
 
 // -------------------------------------------------------------
-// SECURE PASSWORD HASHING & SEEDING UTILITIES
+// SECURE PASSWORD HASHING & SEEDING UTILITIES WITH BCRYPT
 // -------------------------------------------------------------
-function hashPassword(password: string, salt: string): string {
-  return crypto.createHmac('sha256', salt).update(password).digest('hex');
+function hashPassword(password: string): string {
+  return bcrypt.hashSync(password, 10);
 }
 
-function generateSalt(): string {
-  return crypto.randomBytes(16).toString('hex');
+function verifyPassword(password: string, hash: string): boolean {
+  try {
+    return bcrypt.compareSync(password, hash);
+  } catch (err) {
+    return false;
+  }
 }
 
-// Check and seed admin credentials securely on boot
-if (!DB.adminCredentials) {
-  const seedCredentials = [
-    { email: 'adsparktechnologies01@gmail.com', password: 'AdSpark@2026' },
-    { email: 'admin@adsparktech.com', password: 'AdSparkAdmin@2026' },
-    { email: 'editor@adsparktech.com', password: 'AdSparkEditor@2026' },
-    { email: 'manager@adsparktech.com', password: 'AdSparkManager@2026' }
-  ];
+// Check and seed admin credentials securely on boot using bcrypt
+const seedCredentials = [
+  { email: 'adsparktechnologies01@gmail.com', password: 'AdSpark@2026' },
+  { email: 'admin@adsparktech.com', password: 'AdSparkAdmin@2026' },
+  { email: 'editor@adsparktech.com', password: 'AdSparkEditor@2026' },
+  { email: 'manager@adsparktech.com', password: 'AdSparkManager@2026' }
+];
 
+if (!DB.adminCredentials || !Array.isArray(DB.adminCredentials) || DB.adminCredentials.some((c: any) => !c.passwordHash || !c.passwordHash.startsWith('$2'))) {
   DB.adminCredentials = seedCredentials.map(sc => {
-    const salt = generateSalt();
     return {
       email: sc.email.toLowerCase(),
-      passwordHash: hashPassword(sc.password, salt),
-      salt: salt
+      passwordHash: hashPassword(sc.password),
+      salt: ''
     };
   });
   saveDatabase();
-  console.log('[SECURITY] Admin credentials successfully seeded in backend datastore.');
+  console.log('[SECURITY] Admin credentials successfully seeded with Bcrypt in backend datastore.');
 }
 
 // -------------------------------------------------------------
@@ -290,8 +294,7 @@ app.post('/api/auth/login', (req, res) => {
   const credentials = (DB.adminCredentials || []).find((c: any) => c.email.toLowerCase() === emailLower);
 
   if (credentials) {
-    const computedHash = hashPassword(password, credentials.salt);
-    if (computedHash === credentials.passwordHash) {
+    if (verifyPassword(password, credentials.passwordHash)) {
       // Find full user details
       const adminDetails = (initialAdmins || []).find((a: any) => a.email.toLowerCase() === emailLower) || {
         id: `usr-${Date.now()}`,
@@ -402,9 +405,8 @@ app.post('/api/auth/reset-password', (req, res) => {
     return res.status(400).json({ error: 'Account not found' });
   }
 
-  const newSalt = generateSalt();
-  DB.adminCredentials[credentialsIndex].passwordHash = hashPassword(newPassword, newSalt);
-  DB.adminCredentials[credentialsIndex].salt = newSalt;
+  DB.adminCredentials[credentialsIndex].passwordHash = hashPassword(newPassword);
+  DB.adminCredentials[credentialsIndex].salt = '';
   saveDatabase();
 
   // Clear reset code

@@ -548,30 +548,7 @@ export const FrontendPages: React.FC<FrontendPagesProps> = ({
               </div>
             </section>
 
-            {/* TESTIMONIALS SLIDER IN HOME */}
-            <section className="bg-slate-50 text-slate-800 py-12 border-y border-slate-200">
-              <div className="max-w-5xl mx-auto px-4 text-center space-y-6">
-                <span className="text-xs font-bold text-brand-blue uppercase tracking-widest bg-blue-50 px-3 py-1 rounded-full border border-blue-100">
-                  Client Endorsements
-                </span>
-                <h2 className="text-2xl font-display font-bold text-slate-900">Trusted by Technical Leadership</h2>
-                
-                <div className="p-6 rounded-2xl bg-white border border-slate-200 max-w-3xl mx-auto space-y-4 shadow-sm">
-                  <div className="flex justify-center gap-1">
-                    {[1, 2, 3, 4, 5].map(star => (
-                      <Lucide.Star key={star} size={16} className="fill-brand-blue text-brand-blue" />
-                    ))}
-                  </div>
-                  <p className="text-slate-700 italic text-sm md:text-base leading-relaxed">
-                    "{testimonials[0]?.feedback || 'AdSpark team delivered on all milestones. Professional engineering at its finest.'}"
-                  </p>
-                  <div>
-                    <h4 className="font-bold text-slate-900 text-sm">{testimonials[0]?.name || 'Sarah Jenkins'}</h4>
-                    <span className="text-xs text-slate-500">{testimonials[0]?.role} at {testimonials[0]?.company}</span>
-                  </div>
-                </div>
-              </div>
-            </section>
+
 
 
 
