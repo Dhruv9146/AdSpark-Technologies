@@ -76,15 +76,40 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [statusMessage, setStatusMessage] = useState<string>('');
 
   // Authentication & Session Simulator
-  const [adminEmail, setAdminEmail] = useState<string>('adsparktechnologies01@gmail.com');
-  const [adminName, setAdminName] = useState<string>('Dhruv Marathe');
+  const [adminEmail, setAdminEmail] = useState<string>(() => {
+    const userStr = localStorage.getItem('adspark_admin_user') || sessionStorage.getItem('adspark_admin_user');
+    if (userStr) {
+      try {
+        const u = JSON.parse(userStr);
+        if (u.email) return u.email;
+      } catch (e) {}
+    }
+    return 'adsparktechnologies01@gmail.com';
+  });
+  const [adminName, setAdminName] = useState<string>(() => {
+    const userStr = localStorage.getItem('adspark_admin_user') || sessionStorage.getItem('adspark_admin_user');
+    if (userStr) {
+      try {
+        const u = JSON.parse(userStr);
+        if (u.name) return u.name;
+      } catch (e) {}
+    }
+    return 'Dhruv Marathe';
+  });
 
   // Load custom SMTP logs and active admin catalog
   const [systemEmails, setSystemEmails] = useState<any[]>([]);
   const [localAdmins, setLocalAdmins] = useState<AdminUser[]>(initialAdminsProp || []);
 
+  // Sync localAdmins whenever initialAdminsProp updates
+  useEffect(() => {
+    if (initialAdminsProp && initialAdminsProp.length > 0) {
+      setLocalAdmins(initialAdminsProp);
+    }
+  }, [initialAdminsProp]);
+
   // Compute active user role dynamically
-  const currentUser = localAdmins.find(a => a.email === adminEmail) || {
+  const currentUser = localAdmins.find(a => a.email.toLowerCase() === adminEmail.toLowerCase()) || {
     id: 'usr-1',
     name: adminName,
     email: adminEmail,
@@ -147,6 +172,30 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   // Dynamic Zero-Dependency Fetch Interceptor representing Laravel Controller endpoints
   const fetch = async (url: string, options?: any): Promise<Response> => {
+    // 1. Try to make a REAL backend API call first
+    try {
+      const headers = { ...(options?.headers || {}) };
+      if (token && !headers['Authorization'] && !headers['authorization']) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+      if (!headers['Content-Type'] && !headers['content-type'] && options?.body) {
+        headers['Content-Type'] = 'application/json';
+      }
+
+      const realOptions = {
+        ...options,
+        headers
+      };
+
+      const realRes = await window.fetch(url, realOptions);
+      if (realRes.ok || realRes.status < 500) {
+        return realRes;
+      }
+    } catch (realErr) {
+      console.warn('[ADMIN API FALLBACK] Express server unreachable. Invoking offline local storage simulation mode...', realErr);
+    }
+
+    // 2. Fall back to simulated offline local storage mode
     const stored = localStorage.getItem('adspark_db') || '{}';
     const db = JSON.parse(stored);
     const method = (options?.method || 'GET').toUpperCase();
@@ -497,7 +546,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   };
 
   // Action: Super Admin Users Management CRUD
-  const handleSaveAdminUser = (e: React.FormEvent) => {
+  const handleSaveAdminUser = async (e: React.FormEvent) => {
     e.preventDefault();
     if (currentUser.role !== 'Super Admin') {
       alert('Forbidden: Role-based authorization requires Super Admin role.');
@@ -508,130 +557,214 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       return;
     }
 
+    setStatusMessage(editingAdminId ? 'Updating administrator...' : 'Creating administrator...');
     try {
-      const db = JSON.parse(localStorage.getItem('adspark_db') || '{}');
-      let currentAdmins = db.admins || [];
-
-      if (editingAdminId) {
-        // Edit Admin
-        currentAdmins = currentAdmins.map((a: any) => 
-          a.id === editingAdminId 
-            ? { ...a, name: adminForm.name, email: adminForm.email, role: adminForm.role } 
-            : a
-        );
-        logLocalAction('Admin Account Updated', `Edited user ${adminForm.name} (${adminForm.email}) role to ${adminForm.role}`);
-      } else {
-        // Create Admin
-        const newAdmin: AdminUser = {
-          id: 'usr-' + Date.now(),
-          name: adminForm.name!,
-          email: adminForm.email!,
+      const url = editingAdminId ? `/api/admins/${editingAdminId}` : '/api/admins';
+      const method = editingAdminId ? 'PUT' : 'POST';
+      
+      const res = await fetch(url, {
+        method,
+        body: JSON.stringify({
+          name: adminForm.name,
+          email: adminForm.email,
           role: adminForm.role || 'Admin',
-          status: 'active',
-          profilePhoto: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(adminForm.name!)}`
-        };
-        currentAdmins = [...currentAdmins, newAdmin];
-        logLocalAction('Admin Account Created', `Added new user ${adminForm.name} with role: ${newAdmin.role}`);
+          password: adminForm.password
+        })
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to persist administrative records');
       }
 
-      db.admins = currentAdmins;
-      localStorage.setItem('adspark_db', JSON.stringify(db));
+      // Synchronize client-side local database copies as fallback
+      try {
+        const localDb = JSON.parse(localStorage.getItem('adspark_db') || '{}');
+        let currentAdmins = localDb.admins || [];
+        if (editingAdminId) {
+          currentAdmins = currentAdmins.map((a: any) => a.id === editingAdminId ? data : a);
+          logLocalAction('Admin Account Updated', `Edited user ${adminForm.name} (${adminForm.email}) role to ${adminForm.role}`);
+        } else {
+          currentAdmins.push(data);
+          logLocalAction('Admin Account Created', `Added new user ${adminForm.name} with role: ${data.role}`);
+        }
+        localDb.admins = currentAdmins;
+        localStorage.setItem('adspark_db', JSON.stringify(localDb));
+        setLocalAdmins(currentAdmins);
+      } catch (dbErr) {
+        console.warn('Local storage database cache failed to update:', dbErr);
+      }
+
       onRefreshData();
-      setLocalAdmins(currentAdmins);
       setAdminForm({});
       setEditingAdminId(null);
       setIsCreating(false);
-      alert('Administrative credentials successfully synchronized!');
-    } catch (err) {
+      alert(editingAdminId ? 'Administrative record updated successfully!' : 'Administrative account created successfully!');
+    } catch (err: any) {
       console.error(err);
+      alert(err.message || 'An error occurred while saving the administrator user.');
+    } finally {
+      setStatusMessage('');
     }
   };
 
-  const handleToggleAdminStatus = (id: string) => {
+  const handleToggleAdminStatus = async (id: string) => {
     if (currentUser.role !== 'Super Admin') return;
+    const target = localAdmins.find((a: any) => a.id === id);
+    if (!target) return;
+    if (target.email === currentUser.email) {
+      alert('Action Blocked: You cannot deactivate your own active session!');
+      return;
+    }
+
     try {
-      const db = JSON.parse(localStorage.getItem('adspark_db') || '{}');
-      const target = db.admins?.find((a: any) => a.id === id);
-      if (!target) return;
-      if (target.email === currentUser.email) {
-        alert('Action Blocked: You cannot deactivate your own active session!');
-        return;
+      const res = await fetch(`/api/admins/${id}/toggle-status`, {
+        method: 'PUT'
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to toggle administrator status');
       }
 
-      const nextStatus = target.status === 'active' ? 'disabled' : 'active';
-      db.admins = db.admins.map((a: any) => a.id === id ? { ...a, status: nextStatus } : a);
-      logLocalAction('Admin Status Toggled', `Changed ${target.name} status to ${nextStatus}`);
-      localStorage.setItem('adspark_db', JSON.stringify(db));
+      // Sync local storage copies
+      try {
+        const localDb = JSON.parse(localStorage.getItem('adspark_db') || '{}');
+        if (localDb.admins) {
+          localDb.admins = localDb.admins.map((a: any) => a.id === id ? data : a);
+          localStorage.setItem('adspark_db', JSON.stringify(localDb));
+          setLocalAdmins(localDb.admins);
+        }
+      } catch (dbErr) {}
+
+      logLocalAction('Admin Status Toggled', `Changed ${target.name} status`);
       onRefreshData();
-      setLocalAdmins(db.admins);
-    } catch (err) {
+      alert(`Account status updated for ${target.name}.`);
+    } catch (err: any) {
       console.error(err);
+      alert(err.message || 'Failed to alter administrator account status.');
     }
   };
 
-  const handleDeleteAdminUser = (id: string) => {
+  const handleDeleteAdminUser = async (id: string) => {
     if (currentUser.role !== 'Super Admin') return;
+    const target = localAdmins.find((a: any) => a.id === id);
+    if (!target) return;
+    if (target.email === currentUser.email) {
+      alert('Action Blocked: You cannot delete your own active session!');
+      return;
+    }
+
+    if (!window.confirm(`Permanently terminate administrator account "${target.name}"?`)) return;
+
     try {
-      const db = JSON.parse(localStorage.getItem('adspark_db') || '{}');
-      const target = db.admins?.find((a: any) => a.id === id);
-      if (!target) return;
-      if (target.email === currentUser.email) {
-        alert('Action Blocked: You cannot delete your own active session!');
-        return;
+      const res = await fetch(`/api/admins/${id}`, {
+        method: 'DELETE'
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to delete administrator account');
       }
 
-      if (!window.confirm(`Permanently terminate administrator account "${target.name}"?`)) return;
+      // Sync local storage copies
+      try {
+        const localDb = JSON.parse(localStorage.getItem('adspark_db') || '{}');
+        if (localDb.admins) {
+          localDb.admins = localDb.admins.filter((a: any) => a.id !== id);
+          localStorage.setItem('adspark_db', JSON.stringify(localDb));
+          setLocalAdmins(localDb.admins);
+        }
+      } catch (dbErr) {}
 
-      db.admins = db.admins.filter((a: any) => a.id !== id);
       logLocalAction('Admin Account Deleted', `Removed user ${target.name} (${target.email})`);
-      localStorage.setItem('adspark_db', JSON.stringify(db));
       onRefreshData();
-      setLocalAdmins(db.admins);
-    } catch (err) {
+      alert(`Administrator account "${target.name}" has been permanently terminated.`);
+    } catch (err: any) {
       console.error(err);
+      alert(err.message || 'Failed to delete administrator account.');
     }
   };
 
-  const handleResetAdminPassword = (id: string) => {
+  const handleResetAdminPassword = async (id: string) => {
     if (currentUser.role !== 'Super Admin') return;
-    const newPass = prompt('Enter the temporary password for this administrator account:');
-    if (!newPass || newPass.trim().length < 6) {
+    const target = localAdmins.find(a => a.id === id);
+    if (!target) return;
+
+    const newPass = prompt(`Enter the temporary password for administrator "${target.name}":`);
+    if (!newPass) return;
+    if (newPass.trim().length < 6) {
       alert('Password must be at least 6 characters.');
       return;
     }
-    const target = localAdmins.find(a => a.id === id);
-    if (target) {
+
+    try {
+      const res = await fetch(`/api/admins/${id}/reset-password`, {
+        method: 'POST',
+        body: JSON.stringify({ password: newPass })
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to reset administrator password');
+      }
+
       logLocalAction('Admin Password Reset', `Generated fresh login credentials for ${target.name}`);
-      alert(`Security credentials reset successfully for ${target.name}!`);
+      alert(`Security credentials reset successfully for ${target.name}! Check SMTP logs for details.`);
+    } catch (err: any) {
+      console.error(err);
+      alert(err.message || 'Failed to reset administrator password.');
     }
   };
 
   // Action: Personal Profile Save
-  const handleSavePersonalProfile = (e: React.FormEvent) => {
+  const handleSavePersonalProfile = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!profileForm.name || !profileForm.email) {
+      alert('Name and email are required.');
+      return;
+    }
+
     try {
-      const db = JSON.parse(localStorage.getItem('adspark_db') || '{}');
-      
-      // Update details in array
-      db.admins = (db.admins || []).map((a: any) => 
-        a.email === adminEmail 
-          ? { ...a, name: profileForm.name, email: profileForm.email, profilePhoto: profileForm.profilePhoto } 
-          : a
-      );
+      const res = await fetch('/api/admins/profile/update', {
+        method: 'PUT',
+        body: JSON.stringify({
+          name: profileForm.name,
+          email: profileForm.email,
+          profilePhoto: profileForm.profilePhoto
+        })
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to update profile details.');
+      }
+
+      // Update cached user session details
+      const userStr = localStorage.getItem('adspark_admin_user') || sessionStorage.getItem('adspark_admin_user');
+      if (userStr) {
+        try {
+          const u = { ...JSON.parse(userStr), ...data };
+          if (localStorage.getItem('adspark_admin_user')) {
+            localStorage.setItem('adspark_admin_user', JSON.stringify(u));
+          } else {
+            sessionStorage.setItem('adspark_admin_user', JSON.stringify(u));
+          }
+        } catch (e) {}
+      }
 
       logLocalAction('Profile Credentials Modified', 'Changed personal identification data and attributes.');
-      localStorage.setItem('adspark_db', JSON.stringify(db));
+      setAdminName(data.name);
+      setAdminEmail(data.email);
       onRefreshData();
-      
-      setAdminName(profileForm.name);
-      setAdminEmail(profileForm.email);
       alert('Personal administration profile synchronized!');
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
+      alert(err.message || 'Failed to synchronize personal profile.');
     }
   };
 
-  const handleUpdatePassword = (e: React.FormEvent) => {
+  const handleUpdatePassword = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!profileForm.currentPassword || !profileForm.newPassword) {
       alert('Please fill out all credential fields.');
@@ -641,9 +774,28 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       alert('Confirm Password mismatch! Please check key sequences.');
       return;
     }
-    logLocalAction('Password Changed', 'Updated administrative account secure key.');
-    alert('Security key successfully updated! Session re-authorized.');
-    setProfileForm(f => ({ ...f, currentPassword: '', newPassword: '', confirmPassword: '' }));
+
+    try {
+      const res = await fetch('/api/admins/profile/change-password', {
+        method: 'PUT',
+        body: JSON.stringify({
+          currentPassword: profileForm.currentPassword,
+          newPassword: profileForm.newPassword
+        })
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to update administrative security key.');
+      }
+
+      logLocalAction('Password Changed', 'Updated administrative account secure key.');
+      alert('Security key successfully updated!');
+      setProfileForm(f => ({ ...f, currentPassword: '', newPassword: '', confirmPassword: '' }));
+    } catch (err: any) {
+      console.error(err);
+      alert(err.message || 'Failed to update administrative password.');
+    }
   };
 
   // Filter messages list dynamically based on search & filters

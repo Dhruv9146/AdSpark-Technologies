@@ -6,6 +6,7 @@ import { GoogleGenAI } from '@google/genai';
 import dotenv from 'dotenv';
 import crypto from 'crypto';
 import bcrypt from 'bcryptjs';
+import nodemailer from 'nodemailer';
 
 // Load environment variables
 dotenv.config();
@@ -100,6 +101,7 @@ let DB: any = {
   contact_requests: initialMessages,
   proposal_requests: initialProposals,
   subscribers: initialSubscribers,
+  admins: initialAdmins,
   // SMTP mock logs to let user inspect "sent" emails inside Admin UI!
   systemEmails: [
     {
@@ -125,6 +127,9 @@ function loadDatabase() {
       }
       if (!DB.proposal_requests) {
         DB.proposal_requests = DB.proposal_requests || initialProposals;
+      }
+      if (!DB.admins) {
+        DB.admins = initialAdmins;
       }
       console.log('Database loaded successfully from database.json');
     } else {
@@ -250,7 +255,37 @@ function logAction(adminEmail: string, action: string, details: string, req: exp
   saveDatabase();
 }
 
-// Email notifier simulator helper
+// SMTP Transporter Lazy Initialization
+let mailTransporter: nodemailer.Transporter | null = null;
+
+function getMailTransporter(): nodemailer.Transporter | null {
+  if (mailTransporter !== null) return mailTransporter;
+
+  const host = process.env.SMTP_HOST;
+  const port = process.env.SMTP_PORT;
+  const user = process.env.SMTP_USER;
+  const pass = process.env.SMTP_PASS;
+
+  if (host && port && user && pass) {
+    try {
+      mailTransporter = nodemailer.createTransport({
+        host,
+        port: parseInt(port, 10),
+        secure: process.env.SMTP_SECURE === 'true',
+        auth: {
+          user,
+          pass,
+        },
+      });
+      console.log('[SMTP] Nodemailer transport initialized successfully.');
+    } catch (err) {
+      console.error('[SMTP] Failed to initialize Nodemailer transport:', err);
+    }
+  }
+  return mailTransporter;
+}
+
+// Email notifier simulator helper with real SMTP forwarding
 function sendSimulatedEmail(to: string, subject: string, body: string) {
   const newEmail = {
     id: `em-${Date.now()}`,
@@ -259,9 +294,30 @@ function sendSimulatedEmail(to: string, subject: string, body: string) {
     body,
     sentAt: new Date().toISOString()
   };
+  if (!DB.systemEmails) {
+    DB.systemEmails = [];
+  }
   DB.systemEmails.unshift(newEmail);
   saveDatabase();
-  console.log(`[SMTP SIMULATOR] Sent email to ${to}: "${subject}"`);
+  console.log(`[SMTP SIMULATOR] Saved email mock to log for ${to}: "${subject}"`);
+
+  // Forward to real SMTP if configured
+  const transporter = getMailTransporter();
+  if (transporter) {
+    const fromAddress = process.env.SMTP_FROM || `"AdSpark Alerts" <${process.env.SMTP_USER}>`;
+    transporter.sendMail({
+      from: fromAddress,
+      to,
+      subject,
+      text: body,
+    }).then(info => {
+      console.log(`[SMTP] Real email successfully sent to ${to}: MessageId=${info.messageId}`);
+    }).catch(err => {
+      console.error(`[SMTP] Real email transmission to ${to} failed:`, err);
+    });
+  } else {
+    console.log('[SMTP] Real SMTP is not configured. Email logged to simulated database logs instead.');
+  }
 }
 
 // REST APIs
@@ -278,6 +334,7 @@ app.get('/api/db', (req, res) => {
     contact_requests: DB.contact_requests || DB.messages || [],
     proposal_requests: DB.proposal_requests || [],
     subscribers: DB.subscribers,
+    admins: DB.admins || [],
     testimonials: DB.testimonials,
     clients: DB.clients,
     gallery: DB.gallery,
@@ -318,13 +375,17 @@ app.post('/api/auth/login', (req, res) => {
   if (credentials) {
     if (verifyPassword(password, credentials.passwordHash)) {
       // Find full user details
-      const adminDetails = (initialAdmins || []).find((a: any) => a.email.toLowerCase() === emailLower) || {
+      const adminDetails = (DB.admins || []).find((a: any) => a.email.toLowerCase() === emailLower) || {
         id: `usr-${Date.now()}`,
         name: emailLower.split('@')[0],
         email: emailLower,
         role: 'Admin',
         status: 'active'
       };
+
+      if (adminDetails.status === 'disabled') {
+        return res.status(403).json({ error: 'This administrator account has been disabled. Please contact the Super Admin.' });
+      }
 
       const token = `token-admin-${crypto.randomBytes(32).toString('hex')}`;
       const expiresAt = Date.now() + 2 * 60 * 60 * 1000; // 2 hours session
@@ -458,18 +519,294 @@ app.post('/api/auth/logout', (req, res) => {
 });
 
 // Admin verification middleware
-function requireAdmin(req: express.Request, res: express.Response, next: express.NextFunction) {
+function requireAdmin(req: any, res: express.Response, next: express.NextFunction) {
   const authHeader = req.headers.authorization;
   if (authHeader && authHeader.startsWith('Bearer ')) {
     const token = authHeader.substring(7);
     const session = activeSessions.get(token);
     if (session && Date.now() < session.expiresAt) {
+      req.adminEmail = session.email;
       next();
       return;
     }
   }
   res.status(403).json({ error: 'Unauthorized. Admin credentials required.' });
 }
+
+// 1.1. Admins Management API (CRUD)
+
+// Helper to check if the current user is a Super Admin
+function requireSuperAdmin(req: any, res: express.Response, next: express.NextFunction) {
+  const authHeader = req.headers.authorization;
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    const token = authHeader.substring(7);
+    const session = activeSessions.get(token);
+    if (session && Date.now() < session.expiresAt) {
+      // Find full user details in DB.admins
+      const adminDetails = (DB.admins || []).find((a: any) => a.email.toLowerCase() === session.email.toLowerCase());
+      if (adminDetails && adminDetails.role === 'Super Admin') {
+        req.adminEmail = session.email;
+        next();
+        return;
+      }
+    }
+  }
+  res.status(403).json({ error: 'Forbidden. Super Admin authorization required.' });
+}
+
+// Get all admins
+app.get('/api/admins', requireAdmin, (req: any, res) => {
+  res.json(DB.admins || []);
+});
+
+// Create new admin
+app.post('/api/admins', requireSuperAdmin, (req: any, res) => {
+  const { name, email, password, role } = req.body;
+  if (!name || !email || !password) {
+    return res.status(400).json({ error: 'Name, email, and password are required.' });
+  }
+
+  const emailLower = email.trim().toLowerCase();
+
+  // Check if email already exists
+  const exists = (DB.admins || []).some((a: any) => a.email.toLowerCase() === emailLower);
+  if (exists) {
+    return res.status(400).json({ error: 'An admin account with this email already exists.' });
+  }
+
+  const newAdmin = {
+    id: `usr-${Date.now()}`,
+    name,
+    email: emailLower,
+    role: role || 'Admin',
+    status: 'active',
+    profilePhoto: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(name)}`,
+    lastLoginAt: '',
+    lastLoginIp: ''
+  };
+
+  // Hash password
+  const newCredential = {
+    email: emailLower,
+    passwordHash: hashPassword(password),
+    salt: ''
+  };
+
+  if (!DB.admins) DB.admins = [];
+  if (!DB.adminCredentials) DB.adminCredentials = [];
+
+  DB.admins.push(newAdmin);
+  DB.adminCredentials.push(newCredential);
+  saveDatabase();
+
+  logAction(req.adminEmail, 'Create Admin', `Added new administrator: ${name} (${emailLower}) with role ${role}`, req);
+
+  res.status(201).json(newAdmin);
+});
+
+// Update admin
+app.put('/api/admins/:id', requireAdmin, (req: any, res) => {
+  const { id } = req.params;
+  const { name, email, role } = req.body;
+
+  // Only Super Admin can update roles or update other admins
+  const index = (DB.admins || []).findIndex((a: any) => a.id === id);
+  if (index === -1) {
+    return res.status(404).json({ error: 'Admin not found.' });
+  }
+
+  const targetAdmin = DB.admins[index];
+  const isSelf = targetAdmin.email.toLowerCase() === req.adminEmail.toLowerCase();
+
+  // If not self, must be Super Admin
+  if (!isSelf) {
+    const callerAdmin = (DB.admins || []).find((a: any) => a.email.toLowerCase() === req.adminEmail.toLowerCase());
+    if (!callerAdmin || callerAdmin.role !== 'Super Admin') {
+      return res.status(403).json({ error: 'Forbidden. You do not have permission to modify other administrator accounts.' });
+    }
+  }
+
+  const emailLower = email ? email.trim().toLowerCase() : targetAdmin.email;
+
+  // Check email conflict if changing email
+  if (emailLower !== targetAdmin.email) {
+    const conflict = (DB.admins || []).some((a: any) => a.id !== id && a.email.toLowerCase() === emailLower);
+    if (conflict) {
+      return res.status(400).json({ error: 'An admin account with this email already exists.' });
+    }
+
+    // Update credential email as well
+    const credIndex = (DB.adminCredentials || []).findIndex((c: any) => c.email.toLowerCase() === targetAdmin.email);
+    if (credIndex !== -1) {
+      DB.adminCredentials[credIndex].email = emailLower;
+    }
+  }
+
+  // Update details
+  DB.admins[index].name = name || targetAdmin.name;
+  DB.admins[index].email = emailLower;
+  
+  // Only Super Admin can change roles
+  if (role) {
+    const callerAdmin = (DB.admins || []).find((a: any) => a.email.toLowerCase() === req.adminEmail.toLowerCase());
+    if (callerAdmin && callerAdmin.role === 'Super Admin') {
+      DB.admins[index].role = role;
+    }
+  }
+
+  saveDatabase();
+
+  logAction(req.adminEmail, 'Update Admin', `Updated admin details for ${DB.admins[index].name} (${emailLower})`, req);
+
+  res.json(DB.admins[index]);
+});
+
+// Delete admin
+app.delete('/api/admins/:id', requireSuperAdmin, (req: any, res) => {
+  const { id } = req.params;
+  const index = (DB.admins || []).findIndex((a: any) => a.id === id);
+  if (index === -1) {
+    return res.status(404).json({ error: 'Admin not found.' });
+  }
+
+  const targetAdmin = DB.admins[index];
+  if (targetAdmin.email.toLowerCase() === req.adminEmail.toLowerCase()) {
+    return res.status(400).json({ error: 'Action Blocked: You cannot delete your own active session.' });
+  }
+
+  // Delete credentials
+  DB.adminCredentials = (DB.adminCredentials || []).filter((c: any) => c.email.toLowerCase() !== targetAdmin.email.toLowerCase());
+  // Delete admin
+  DB.admins = DB.admins.filter((a: any) => a.id !== id);
+
+  saveDatabase();
+
+  logAction(req.adminEmail, 'Delete Admin', `Permanently removed admin account ${targetAdmin.name} (${targetAdmin.email})`, req);
+
+  res.json({ success: true });
+});
+
+// Toggle admin status
+app.put('/api/admins/:id/toggle-status', requireSuperAdmin, (req: any, res) => {
+  const { id } = req.params;
+  const index = (DB.admins || []).findIndex((a: any) => a.id === id);
+  if (index === -1) {
+    return res.status(404).json({ error: 'Admin not found.' });
+  }
+
+  const targetAdmin = DB.admins[index];
+  if (targetAdmin.email.toLowerCase() === req.adminEmail.toLowerCase()) {
+    return res.status(400).json({ error: 'Action Blocked: You cannot deactivate your own active session.' });
+  }
+
+  const nextStatus = targetAdmin.status === 'active' ? 'disabled' : 'active';
+  DB.admins[index].status = nextStatus;
+
+  saveDatabase();
+
+  logAction(req.adminEmail, 'Toggle Admin Status', `Changed status of ${targetAdmin.name} to ${nextStatus}`, req);
+
+  res.json(DB.admins[index]);
+});
+
+// Reset admin password
+app.post('/api/admins/:id/reset-password', requireSuperAdmin, (req: any, res) => {
+  const { id } = req.params;
+  const { password } = req.body;
+  if (!password || password.trim().length < 6) {
+    return res.status(400).json({ error: 'Password must be at least 6 characters.' });
+  }
+
+  const index = (DB.admins || []).findIndex((a: any) => a.id === id);
+  if (index === -1) {
+    return res.status(404).json({ error: 'Admin not found.' });
+  }
+
+  const targetAdmin = DB.admins[index];
+  const credIndex = (DB.adminCredentials || []).findIndex((c: any) => c.email.toLowerCase() === targetAdmin.email.toLowerCase());
+  if (credIndex === -1) {
+    return res.status(404).json({ error: 'Credentials not found.' });
+  }
+
+  DB.adminCredentials[credIndex].passwordHash = hashPassword(password);
+  DB.adminCredentials[credIndex].salt = '';
+  saveDatabase();
+
+  logAction(req.adminEmail, 'Admin Password Reset', `Generated fresh password for admin ${targetAdmin.name} (${targetAdmin.email})`, req);
+
+  res.json({ success: true, message: `Password reset successfully for ${targetAdmin.name}!` });
+});
+
+// Update personal profile
+app.put('/api/admins/profile/update', requireAdmin, (req: any, res) => {
+  const { name, email, profilePhoto } = req.body;
+  const emailLower = email ? email.trim().toLowerCase() : '';
+
+  const index = (DB.admins || []).findIndex((a: any) => a.email.toLowerCase() === req.adminEmail.toLowerCase());
+  if (index === -1) {
+    return res.status(404).json({ error: 'Profile not found.' });
+  }
+
+  const targetAdmin = DB.admins[index];
+
+  // Conflict check if changing email
+  if (emailLower && emailLower !== targetAdmin.email) {
+    const conflict = (DB.admins || []).some((a: any) => a.email.toLowerCase() === emailLower);
+    if (conflict) {
+      return res.status(400).json({ error: 'An admin account with this email already exists.' });
+    }
+
+    // Update credential email
+    const credIndex = (DB.adminCredentials || []).findIndex((c: any) => c.email.toLowerCase() === targetAdmin.email);
+    if (credIndex !== -1) {
+      DB.adminCredentials[credIndex].email = emailLower;
+    }
+
+    // Update active session email
+    activeSessions.forEach((sess, tok) => {
+      if (sess.email.toLowerCase() === targetAdmin.email) {
+        activeSessions.set(tok, { ...sess, email: emailLower });
+      }
+    });
+
+    DB.admins[index].email = emailLower;
+  }
+
+  if (name) DB.admins[index].name = name;
+  if (profilePhoto !== undefined) DB.admins[index].profilePhoto = profilePhoto;
+
+  saveDatabase();
+
+  logAction(emailLower || targetAdmin.email, 'Update Personal Profile', 'Admin updated their own personal profile details', req);
+
+  res.json(DB.admins[index]);
+});
+
+// Change personal password
+app.put('/api/admins/profile/change-password', requireAdmin, (req: any, res) => {
+  const { currentPassword, newPassword } = req.body;
+  if (!currentPassword || !newPassword || newPassword.trim().length < 6) {
+    return res.status(400).json({ error: 'Both old and new passwords are required. New password must be at least 6 characters.' });
+  }
+
+  const credIndex = (DB.adminCredentials || []).findIndex((c: any) => c.email.toLowerCase() === req.adminEmail.toLowerCase());
+  if (credIndex === -1) {
+    return res.status(404).json({ error: 'Credentials not found.' });
+  }
+
+  const cred = DB.adminCredentials[credIndex];
+  if (!verifyPassword(currentPassword, cred.passwordHash)) {
+    return res.status(400).json({ error: 'The current password entered is incorrect.' });
+  }
+
+  DB.adminCredentials[credIndex].passwordHash = hashPassword(newPassword);
+  DB.adminCredentials[credIndex].salt = '';
+  saveDatabase();
+
+  logAction(req.adminEmail, 'Change Password', 'Admin updated their security password successfully', req);
+
+  res.json({ success: true, message: 'Password changed successfully.' });
+});
 
 // 2. Services REST API
 app.get('/api/services', (req, res) => {

@@ -53,6 +53,18 @@ const fallbackData = {
   careers: seedCareers,
   applications: initialApplications,
   messages: initialMessages,
+  contact_requests: initialMessages,
+  proposal_requests: [
+    {
+      id: 'prop-1',
+      name: 'Robert Chen',
+      email: 'robert@apex.com',
+      subject: 'Enterprise ERP Workflow Automation',
+      message: 'We are looking to develop a custom ERP pipeline to automate our supply chain operations and sync with our legacy PostgreSQL databases.',
+      status: 'Unread' as const,
+      submittedAt: new Date().toISOString()
+    }
+  ],
   subscribers: initialSubscribers,
   testimonials: seedTestimonials,
   clients: seedClients,
