@@ -202,3 +202,14 @@ export interface AdminUser {
   lastLoginAt?: string;
   lastLoginIp?: string;
 }
+
+export interface ProposalRequest {
+  id: string;
+  name: string;
+  email: string;
+  subject: string;
+  message: string;
+  status: 'Unread' | 'Read' | 'Evaluating' | 'Processed';
+  submittedAt: string;
+}
+

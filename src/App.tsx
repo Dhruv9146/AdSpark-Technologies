@@ -44,6 +44,7 @@ import { FrontendPages } from './components/FrontendPages';
 import { AdminDashboard } from './components/AdminDashboard';
 import { AdminLogin } from './components/AdminLogin';
 import * as Lucide from 'lucide-react';
+import { secureLogout } from './lib/supabase';
 
 const fallbackData = {
   services: seedServices,
@@ -74,6 +75,8 @@ export default function App() {
     careers: Career[];
     applications: CareerApplication[];
     messages: ContactMessage[];
+    contact_requests?: any[];
+    proposal_requests?: any[];
     subscribers: Subscriber[];
     testimonials: Testimonial[];
     clients: ClientPartner[];
@@ -179,22 +182,8 @@ export default function App() {
 
   const handleLogout = async () => {
     if (adminToken) {
-      try {
-        await fetch('/api/auth/logout', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${adminToken}`,
-            'Content-Type': 'application/json'
-          }
-        });
-      } catch (err) {
-        console.error('Logout API request error:', err);
-      }
+      await secureLogout(adminToken);
     }
-    localStorage.removeItem('adspark_admin_token');
-    localStorage.removeItem('adspark_admin_user');
-    sessionStorage.removeItem('adspark_admin_token');
-    sessionStorage.removeItem('adspark_admin_user');
     setAdminToken(null);
     setIsAdminView(false);
     fetchDatabase();
@@ -224,6 +213,8 @@ export default function App() {
         careers={data.careers}
         applications={data.applications}
         messages={data.messages}
+        contact_requests={data.contact_requests || []}
+        proposal_requests={data.proposal_requests || []}
         subscribers={data.subscribers}
         testimonials={data.testimonials}
         clients={data.clients}

@@ -69,6 +69,18 @@ if (process.env.GEMINI_API_KEY) {
 }
 
 // In-Memory Database State
+const initialProposals = [
+  {
+    id: 'prop-1',
+    name: 'Robert Chen',
+    email: 'robert@apex.com',
+    subject: 'Enterprise ERP Workflow Automation',
+    message: 'We are looking to develop a custom ERP pipeline to automate our supply chain operations and sync with our legacy PostgreSQL databases.',
+    status: 'Unread',
+    submittedAt: new Date().toISOString()
+  }
+];
+
 let DB: any = {
   services: seedServices,
   projects: seedProjects,
@@ -85,6 +97,8 @@ let DB: any = {
   logs: initialLogs,
   applications: initialApplications,
   messages: initialMessages,
+  contact_requests: initialMessages,
+  proposal_requests: initialProposals,
   subscribers: initialSubscribers,
   // SMTP mock logs to let user inspect "sent" emails inside Admin UI!
   systemEmails: [
@@ -106,6 +120,12 @@ function loadDatabase() {
       const parsed = JSON.parse(data);
       // Merge keys to support updates gracefully
       DB = { ...DB, ...parsed };
+      if (!DB.contact_requests) {
+        DB.contact_requests = DB.messages || DB.contact_requests || initialMessages;
+      }
+      if (!DB.proposal_requests) {
+        DB.proposal_requests = DB.proposal_requests || initialProposals;
+      }
       console.log('Database loaded successfully from database.json');
     } else {
       saveDatabase();
@@ -254,7 +274,9 @@ app.get('/api/db', (req, res) => {
     blogs: DB.blogs,
     careers: DB.careers,
     applications: DB.applications,
-    messages: DB.messages,
+    messages: DB.messages || DB.contact_requests || [],
+    contact_requests: DB.contact_requests || DB.messages || [],
+    proposal_requests: DB.proposal_requests || [],
     subscribers: DB.subscribers,
     testimonials: DB.testimonials,
     clients: DB.clients,
@@ -721,9 +743,9 @@ app.delete('/api/applications/:id', requireAdmin, (req, res) => {
   }
 });
 
-// 7. Contacts Messages Storage API
+// 7. Contacts & Proposals Storage APIs
 app.get('/api/contacts', requireAdmin, (req, res) => {
-  res.json(DB.messages);
+  res.json(DB.contact_requests || DB.messages || []);
 });
 
 app.post('/api/contacts', (req, res) => {
@@ -740,14 +762,20 @@ app.post('/api/contacts', (req, res) => {
     status: 'Unread' as const,
     submittedAt: new Date().toISOString()
   };
-  DB.messages.push(newMessage);
+  
+  // Save in both for flawless backwards compatibility
+  if (!DB.contact_requests) DB.contact_requests = [];
+  if (!DB.messages) DB.messages = [];
+  
+  DB.contact_requests.unshift(newMessage);
+  DB.messages.unshift(newMessage);
   saveDatabase();
 
-  // Simulated email alerts
+  // Send contact notification email automatically to adsparktechnologies01@gmail.com
   sendSimulatedEmail(
-    DB.settings.contactEmail,
-    `New Web Inquiry: "${newMessage.subject}" from ${name}`,
-    `Inquirer Name: ${name}\nEmail Address: ${email}\n\nMessage Body:\n${message}`
+    'adsparktechnologies01@gmail.com',
+    `New Contact Form Submission: "${newMessage.subject}" from ${name}`,
+    `CONTACT FORM SUBMISSION DETAILS:\n\nContact Name: ${name}\nContact Email: ${email}\nSubject Matter: ${newMessage.subject}\n\nMessage Content:\n${message}\n\nThis message has been securely recorded inside contact_requests.`
   );
 
   res.status(201).json(newMessage);
@@ -756,11 +784,26 @@ app.post('/api/contacts', (req, res) => {
 app.put('/api/contacts/:id', requireAdmin, (req, res) => {
   const { id } = req.params;
   const { status } = req.body;
-  const index = DB.messages.findIndex(m => m.id === id);
-  if (index !== -1) {
-    DB.messages[index].status = status;
+  
+  if (!DB.contact_requests) DB.contact_requests = [];
+  if (!DB.messages) DB.messages = [];
+
+  const idx1 = DB.contact_requests.findIndex((m: any) => m.id === id);
+  const idx2 = DB.messages.findIndex((m: any) => m.id === id);
+  
+  let updatedMessage = null;
+  if (idx1 !== -1) {
+    DB.contact_requests[idx1].status = status;
+    updatedMessage = DB.contact_requests[idx1];
+  }
+  if (idx2 !== -1) {
+    DB.messages[idx2].status = status;
+    if (!updatedMessage) updatedMessage = DB.messages[idx2];
+  }
+
+  if (updatedMessage) {
     saveDatabase();
-    res.json(DB.messages[index]);
+    res.json(updatedMessage);
   } else {
     res.status(404).json({ error: 'Contact message not found' });
   }
@@ -768,13 +811,85 @@ app.put('/api/contacts/:id', requireAdmin, (req, res) => {
 
 app.delete('/api/contacts/:id', requireAdmin, (req, res) => {
   const { id } = req.params;
-  const filtered = DB.messages.filter(m => m.id !== id);
-  if (filtered.length !== DB.messages.length) {
-    DB.messages = filtered;
+  
+  if (!DB.contact_requests) DB.contact_requests = [];
+  if (!DB.messages) DB.messages = [];
+
+  const len1 = DB.contact_requests.length;
+  const len2 = DB.messages.length;
+
+  DB.contact_requests = DB.contact_requests.filter((m: any) => m.id !== id);
+  DB.messages = DB.messages.filter((m: any) => m.id !== id);
+
+  if (DB.contact_requests.length !== len1 || DB.messages.length !== len2) {
     saveDatabase();
     res.json({ success: true });
   } else {
     res.status(404).json({ error: 'Message not found' });
+  }
+});
+
+// Proposals Management Endpoints
+app.get('/api/proposals', requireAdmin, (req, res) => {
+  res.json(DB.proposal_requests || []);
+});
+
+app.post('/api/proposals', (req, res) => {
+  const { name, email, subject, message } = req.body;
+  if (!name || !email || !message) {
+    return res.status(400).json({ error: 'Name, email and detailed specifications are required' });
+  }
+  const newProposal = {
+    id: `prop-${Date.now()}`,
+    name,
+    email,
+    subject: subject || 'New Tech Proposal Request',
+    message,
+    status: 'Unread' as const,
+    submittedAt: new Date().toISOString()
+  };
+  
+  if (!DB.proposal_requests) DB.proposal_requests = [];
+  DB.proposal_requests.unshift(newProposal);
+  saveDatabase();
+
+  // Send proposal notification email automatically to adsparktechnologies01@gmail.com
+  sendSimulatedEmail(
+    'adsparktechnologies01@gmail.com',
+    `New Proposal Request Received: "${newProposal.subject}" from ${name}`,
+    `PROPOSAL INQUIRY DETAILS:\n\nClient Name: ${name}\nClient Email: ${email}\nSubject Matter: ${newProposal.subject}\n\nDetailed Specifications:\n${message}\n\nThis proposal has been safely logged in the proposal_requests datastore and is visible on your Admin Dashboard.`
+  );
+
+  res.status(201).json(newProposal);
+});
+
+app.put('/api/proposals/:id', requireAdmin, (req, res) => {
+  const { id } = req.params;
+  const { status } = req.body;
+  
+  if (!DB.proposal_requests) DB.proposal_requests = [];
+  const idx = DB.proposal_requests.findIndex((p: any) => p.id === id);
+  if (idx !== -1) {
+    DB.proposal_requests[idx].status = status;
+    saveDatabase();
+    res.json(DB.proposal_requests[idx]);
+  } else {
+    res.status(404).json({ error: 'Proposal request not found' });
+  }
+});
+
+app.delete('/api/proposals/:id', requireAdmin, (req, res) => {
+  const { id } = req.params;
+  
+  if (!DB.proposal_requests) DB.proposal_requests = [];
+  const len = DB.proposal_requests.length;
+  DB.proposal_requests = DB.proposal_requests.filter((p: any) => p.id !== id);
+  
+  if (DB.proposal_requests.length !== len) {
+    saveDatabase();
+    res.json({ success: true });
+  } else {
+    res.status(404).json({ error: 'Proposal request not found' });
   }
 });
 

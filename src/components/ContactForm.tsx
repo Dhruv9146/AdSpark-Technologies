@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import * as Lucide from 'lucide-react';
 import { WebsiteSettings } from '../types';
+import { isSupabaseConfigured, getSupabaseClient } from '../lib/supabase';
 
 interface ContactFormProps {
   settings: WebsiteSettings;
@@ -50,9 +51,33 @@ export const ContactForm: React.FC<ContactFormProps> = ({ settings, onRefreshDat
 
     setMsgStatus('Submitting proposal request...');
 
+    // Differentiate based on the subject or keyword to place in appropriate repository
+    const isProposalRequest = subject.toLowerCase().includes('proposal') || subject.trim() === '';
+    const endpoint = isProposalRequest ? '/api/proposals' : '/api/contacts';
+    const supabaseTable = isProposalRequest ? 'proposal_requests' : 'contact_requests';
+
     try {
-      // 1. Save in cloud-hosted Express backend database
-      const response = await fetch('/api/contacts', {
+      // 1. Save directly to Supabase if credentials are provided
+      if (isSupabaseConfigured()) {
+        const client = getSupabaseClient();
+        if (client) {
+          const { error } = await client.from(supabaseTable).insert([{
+            name,
+            email,
+            subject: subject || (isProposalRequest ? 'New Tech Proposal Request' : 'General IT Business Query'),
+            message,
+            status: 'Unread'
+          }]);
+          if (error) {
+            console.warn('[SUPABASE INSERT FAILED] Direct save error:', error.message);
+          } else {
+            console.log('[SUPABASE INSERT SUCCESS] Form saved to Supabase!');
+          }
+        }
+      }
+
+      // 2. Always POST to backend to trigger email notification and local DB sync
+      const response = await fetch(endpoint, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -60,52 +85,58 @@ export const ContactForm: React.FC<ContactFormProps> = ({ settings, onRefreshDat
         body: JSON.stringify({
           name,
           email,
-          subject: subject || 'General Systems Consultation',
+          subject: subject || (isProposalRequest ? 'New Tech Proposal Request' : 'General IT Business Query'),
           message
         })
       });
 
       if (!response.ok) {
-        throw new Error('Server integration failed');
+        throw new Error('Server Integration Failed');
       }
 
-      setMsgStatus('Thank you. Your enquiry has been submitted successfully.');
+      setMsgStatus('Thank you. Your proposal request has been submitted successfully and forwarded to our systems team.');
     } catch (err) {
       console.warn('Backend API submission failed. Storing securely in local storage fallback:', err);
       
-      // 2. Client-side database resilience fallback
+      // Client-side database resilience fallback
       try {
         const stored = localStorage.getItem('adspark_db');
         if (stored) {
           const db = JSON.parse(stored);
-          const newMessage = {
-            id: 'msg-' + Date.now(),
+          const newRequest = {
+            id: (isProposalRequest ? 'prop-' : 'msg-') + Date.now(),
             name,
             email,
-            subject: subject || 'General Systems Consultation',
+            subject: subject || (isProposalRequest ? 'New Tech Proposal Request' : 'General IT Business Query'),
             message,
             status: 'Unread',
             submittedAt: new Date().toISOString()
           };
-          db.messages = [newMessage, ...(db.messages || [])];
+          
+          if (isProposalRequest) {
+            db.proposal_requests = [newRequest, ...(db.proposal_requests || [])];
+          } else {
+            db.contact_requests = [newRequest, ...(db.contact_requests || [])];
+            db.messages = [newRequest, ...(db.messages || [])];
+          }
           
           const newLog = {
             id: 'log-' + Date.now(),
             adminEmail: 'visitor@adspark.tech',
-            action: 'Contact Inquiry Submitted',
-            details: `Inquiry received from ${name} (${email})`,
+            action: isProposalRequest ? 'Proposal Submitted' : 'Contact Inquiry Submitted',
+            details: `Submission from ${name} (${email})`,
             ipAddress: '::1',
-            timestamp: new Date().toISOString().replace('T', ' ').substring(0, 19)
+            timestamp: new Date().toISOString()
           };
           db.logs = [newLog, ...(db.logs || [])];
 
           localStorage.setItem('adspark_db', JSON.stringify(db));
         }
       } catch (localErr) {
-        console.error('Error saving local message fallback:', localErr);
+        console.error('Error saving local fallback:', localErr);
       }
       
-      setMsgStatus('Thank you. Your enquiry has been submitted successfully.');
+      setMsgStatus('Thank you. Your submission has been processed successfully.');
     }
 
     setName('');

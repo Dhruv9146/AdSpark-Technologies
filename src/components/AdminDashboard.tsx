@@ -27,6 +27,8 @@ interface AdminDashboardProps {
   careers: Career[];
   applications: CareerApplication[];
   messages: ContactMessage[];
+  contact_requests?: any[];
+  proposal_requests?: any[];
   subscribers: Subscriber[];
   testimonials: Testimonial[];
   clients: ClientPartner[];
@@ -50,6 +52,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   careers,
   applications,
   messages,
+  contact_requests = [],
+  proposal_requests = [],
   subscribers,
   testimonials,
   clients,
@@ -61,6 +65,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   analytics,
   logs,
   admins: initialAdminsProp,
+  token,
   onLogout,
   onRefreshData
 }) => {
@@ -97,6 +102,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [invoiceForm, setInvoiceForm] = useState<Partial<Invoice>>({});
 
   // Inquiries Inbox states
+  const [inboxSubTab, setInboxSubTab] = useState<'contacts' | 'proposals'>('contacts');
   const [searchInquiry, setSearchInquiry] = useState<string>('');
   const [filterInquiryStatus, setFilterInquiryStatus] = useState<string>('All');
   const [selectedInquiry, setSelectedInquiry] = useState<ContactMessage | null>(null);
@@ -389,106 +395,105 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   };
 
   // Action: Inquiries Mailbox Reply & Operations
-  const handleInquiryStatusChange = (id: string, status: 'Read' | 'Unread' | 'Replied') => {
+  const handleInquiryStatusChange = async (id: string, status: 'Read' | 'Unread' | 'Replied') => {
     try {
-      const db = JSON.parse(localStorage.getItem('adspark_db') || '{}');
-      db.messages = (db.messages || []).map((m: any) => m.id === id ? { ...m, status } : m);
-      localStorage.setItem('adspark_db', JSON.stringify(db));
-      onRefreshData();
-      if (selectedInquiry && selectedInquiry.id === id) {
-        setSelectedInquiry({ ...selectedInquiry, status });
+      const isProp = id.startsWith('prop-');
+      const endpoint = isProp ? `/api/proposals/${id}` : `/api/contacts/${id}`;
+      
+      const res = await window.fetch(endpoint, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ status })
+      });
+      
+      if (res.ok) {
+        onRefreshData();
+        if (selectedInquiry && selectedInquiry.id === id) {
+          setSelectedInquiry({ ...selectedInquiry, status });
+        }
       }
     } catch (err) {
-      console.error(err);
+      console.error('Inquiry status update failed:', err);
     }
   };
 
-  const handleInquiryReply = (e: React.FormEvent) => {
+  const handleInquiryReply = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedInquiry || !replyText.trim()) return;
 
     try {
-      const db = JSON.parse(localStorage.getItem('adspark_db') || '{}');
+      const isProp = selectedInquiry.id.startsWith('prop-');
+      const endpoint = isProp ? `/api/proposals/${selectedInquiry.id}` : `/api/contacts/${selectedInquiry.id}`;
       
-      // Update enquiry with response
-      db.messages = (db.messages || []).map((m: any) => 
-        m.id === selectedInquiry.id 
-          ? { ...m, status: 'Replied' as const, reply_text: replyText, replied_at: new Date().toISOString() } 
-          : m
-      );
+      const res = await window.fetch(endpoint, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          status: 'Replied' as const,
+          reply_text: replyText,
+          replied_at: new Date().toISOString()
+        })
+      });
 
-      // Save simulated SMTP transaction log
-      const mail = {
-        id: 'smtp-' + Date.now(),
-        to: selectedInquiry.email,
-        subject: `Response to: ${selectedInquiry.subject}`,
-        body: `Dear ${selectedInquiry.name},\n\nThank you for reaching out to AdSpark Technologies.\n\n${replyText}\n\nWarm regards,\n\n${currentUser.name}\n${currentUser.role}\nAdSpark Executive Suite`,
-        sentAt: new Date().toISOString()
-      };
-      const mails = [mail, ...systemEmails];
-      localStorage.setItem('adspark_smtp_logs', JSON.stringify(mails));
-      setSystemEmails(mails);
-
-      // Security Audit Trail
-      const log: ActivityLog = {
-        id: 'log-' + Date.now(),
-        adminEmail: currentUser.email,
-        action: 'Replied to Inquiry',
-        details: `Sent reply to ${selectedInquiry.name} (${selectedInquiry.email}) about subject: "${selectedInquiry.subject}"`,
-        ipAddress: '::1',
-        timestamp: new Date().toISOString().replace('T', ' ').substring(0, 19)
-      };
-      db.logs = [log, ...(db.logs || [])];
-
-      localStorage.setItem('adspark_db', JSON.stringify(db));
-      onRefreshData();
-      
-      setSelectedInquiry(null);
-      setReplyText('');
-      alert('Reply processed and simulation email dispatched via secure SMTP!');
+      if (res.ok) {
+        onRefreshData();
+        setSelectedInquiry(null);
+        setReplyText('');
+        alert('Reply processed and simulation email dispatched via secure SMTP!');
+      } else {
+        alert('Failed to register reply on the server.');
+      }
     } catch (err) {
-      console.error(err);
+      console.error('Inquiry reply failed:', err);
+      alert('An error occurred during communication with the server.');
     }
   };
 
-  const handleDeleteInquiry = (id: string) => {
-    if (!window.confirm('Delete this contact message permanently?')) return;
+  const handleDeleteInquiry = async (id: string) => {
+    if (!window.confirm('Delete this inquiry permanently?')) return;
     try {
-      const db = JSON.parse(localStorage.getItem('adspark_db') || '{}');
-      db.messages = (db.messages || []).filter((m: any) => m.id !== id);
+      const isProp = id.startsWith('prop-');
+      const endpoint = isProp ? `/api/proposals/${id}` : `/api/contacts/${id}`;
       
-      // Security Audit Trail
-      const log: ActivityLog = {
-        id: 'log-' + Date.now(),
-        adminEmail: currentUser.email,
-        action: 'Inquiry Deleted',
-        details: `Removed message ID: ${id}`,
-        ipAddress: '::1',
-        timestamp: new Date().toISOString().replace('T', ' ').substring(0, 19)
-      };
-      db.logs = [log, ...(db.logs || [])];
-
-      localStorage.setItem('adspark_db', JSON.stringify(db));
-      onRefreshData();
-      setSelectedInquiry(null);
+      const res = await window.fetch(endpoint, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (res.ok) {
+        onRefreshData();
+        setSelectedInquiry(null);
+        alert('Inquiry permanently removed.');
+      } else {
+        alert('Failed to delete inquiry from server database.');
+      }
     } catch (err) {
-      console.error(err);
+      console.error('Delete inquiry integration failed:', err);
     }
   };
 
   const handleExportCSV = () => {
     const headers = 'ID,Name,Email,Subject,Message,Status,DateReceived,ReplyText,RepliedAt\n';
-    const rows = messages.map(m => 
-      `"${m.id}","${m.name.replace(/"/g, '""')}","${m.email}","${m.subject.replace(/"/g, '""')}","${m.message.replace(/"/g, '""')}","${m.status}","${m.submittedAt}","${(m as any).reply_text ? (m as any).reply_text.replace(/"/g, '""') : ''}","${(m as any).replied_at || ''}"`
+    const activeList = inboxSubTab === 'contacts' ? contact_requests : proposal_requests;
+    const rows = activeList.map((m: any) => 
+      `"${m.id}","${m.name.replace(/"/g, '""')}","${m.email}","${(m.subject || '').replace(/"/g, '""')}","${m.message.replace(/"/g, '""')}","${m.status}","${m.submittedAt}","${m.reply_text ? m.reply_text.replace(/"/g, '""') : ''}","${m.replied_at || ''}"`
     ).join('\n');
     
     const blob = new Blob([headers + rows], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `adspark_inquiries_${new Date().toISOString().split('T')[0]}.csv`;
+    link.download = `adspark_${inboxSubTab}_${new Date().toISOString().split('T')[0]}.csv`;
     link.click();
-    logLocalAction('Exported Inquiries CSV', 'Triggered file stream download of full inbox.');
+    logLocalAction('Exported Inquiries CSV', `Triggered CSV download for ${inboxSubTab}.`);
   };
 
   // Action: Super Admin Users Management CRUD
@@ -642,12 +647,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   };
 
   // Filter messages list dynamically based on search & filters
-  const filteredMessages = messages.filter(m => {
+  const filteredMessages = (inboxSubTab === 'contacts' ? (contact_requests || messages || []) : (proposal_requests || [])).filter((m: any) => {
     const query = searchInquiry.toLowerCase();
     const matchesSearch = 
       m.name.toLowerCase().includes(query) ||
       m.email.toLowerCase().includes(query) ||
-      m.subject.toLowerCase().includes(query) ||
+      (m.subject || '').toLowerCase().includes(query) ||
       m.message.toLowerCase().includes(query);
     
     if (filterInquiryStatus === 'All') return matchesSearch;
@@ -1273,6 +1278,36 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 className="px-3 py-1.5 bg-blue-950 border border-blue-900 text-blue-400 hover:bg-blue-900/20 text-xs font-bold rounded-xl transition-all flex items-center gap-1 cursor-pointer"
               >
                 <Lucide.ArrowDownCircle size={14} /> Export CSV Spreadsheet
+              </button>
+            </div>
+
+            {/* INBOX SUB-TABS */}
+            <div className="flex border-b border-slate-800 gap-6 text-xs">
+              <button
+                onClick={() => {
+                  setInboxSubTab('contacts');
+                  setSelectedInquiry(null);
+                }}
+                className={`pb-3 font-bold uppercase tracking-wider transition-all border-b-2 cursor-pointer ${
+                  inboxSubTab === 'contacts'
+                    ? 'border-blue-500 text-white'
+                    : 'border-transparent text-slate-500 hover:text-slate-300'
+                }`}
+              >
+                General Contacts ({contact_requests.length || messages.length || 0})
+              </button>
+              <button
+                onClick={() => {
+                  setInboxSubTab('proposals');
+                  setSelectedInquiry(null);
+                }}
+                className={`pb-3 font-bold uppercase tracking-wider transition-all border-b-2 cursor-pointer ${
+                  inboxSubTab === 'proposals'
+                    ? 'border-blue-500 text-white'
+                    : 'border-transparent text-slate-500 hover:text-slate-300'
+                }`}
+              >
+                IT Proposals ({proposal_requests.length || 0})
               </button>
             </div>
 

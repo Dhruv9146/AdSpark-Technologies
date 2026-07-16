@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import * as Lucide from 'lucide-react';
+import { secureLogin, secureForgotPassword, secureResetPassword, isSupabaseConfigured } from '../lib/supabase';
 
 interface AdminLoginProps {
   onLoginSuccess: (token: string) => void;
@@ -21,57 +22,6 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ onLoginSuccess, onClose 
   const [verifyCode, setVerifyCode] = useState<string>('');
   const [newPassword, setNewPassword] = useState<string>('');
 
-  const checkApiAvailability = async (retries = 3, delayMs = 1000): Promise<boolean> => {
-    return true; // Resilient bypass
-  };
-
-  const safeFetch = async (url: string, options: RequestInit, retries = 2, delayMs = 1000): Promise<Response> => {
-    const timeoutMs = 8000;
-    
-    for (let attempt = 1; attempt <= retries + 1; attempt++) {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-
-      try {
-        const res = await fetch(url, {
-          ...options,
-          signal: controller.signal,
-        });
-        clearTimeout(timeoutId);
-
-        const contentType = res.headers.get('content-type');
-        if (!contentType || !contentType.includes('application/json')) {
-          throw new Error('The server returned an invalid response (non-JSON). The service might be temporarily misconfigured or unavailable.');
-        }
-
-        return res;
-      } catch (err: any) {
-        clearTimeout(timeoutId);
-
-        const isTimeout = err.name === 'AbortError' || err.message?.toLowerCase().includes('timeout');
-        const isNetworkError = err.name === 'TypeError' || err.message?.toLowerCase().includes('failed to fetch') || err.message?.toLowerCase().includes('network');
-        
-        if (attempt <= retries && (isNetworkError || isTimeout)) {
-          console.warn(`API Request attempt ${attempt} failed: ${err.message}. Retrying in ${delayMs}ms...`);
-          await new Promise((resolve) => setTimeout(resolve, delayMs));
-          continue;
-        }
-
-        if (isTimeout) {
-          throw new Error('The request timed out because the server is taking too long to respond. Please check your internet connection or try again later.');
-        }
-
-        if (isNetworkError) {
-          throw new Error('Unable to establish a secure connection to AdSpark\'s authentication servers. The server might be offline or you may be experiencing network issues. Please check your internet connection and try again.');
-        }
-
-        throw err;
-      }
-    }
-    
-    throw new Error('All attempts to reach our authentication services failed. Please check your internet connection and try again.');
-  };
-
   const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorText('');
@@ -85,66 +35,16 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ onLoginSuccess, onClose 
     setLoading(true);
 
     try {
-      let result;
-      try {
-        const res = await safeFetch('/api/auth/login', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({ email, password })
-        });
-
-        result = await res.json();
-
-        if (!res.ok) {
-          throw new Error(result.error || result.message || 'Invalid email or password');
-        }
-      } catch (fetchErr: any) {
-        console.warn('Backend login fetch failed, executing resilient client fallback...', fetchErr);
-        
-        const emailLower = email.trim().toLowerCase();
-        const fallbackAdmins = [
-          { email: 'adsparktechnologies01@gmail.com', password: 'AdSpark@2026', name: 'Dhruv Marathe', role: 'Super Admin' },
-          { email: 'admin@adsparktech.com', password: 'AdSparkAdmin@2026', name: 'John Admin', role: 'Admin' },
-          { email: 'editor@adsparktech.com', password: 'AdSparkEditor@2026', name: 'Sarah Editor', role: 'Editor' },
-          { email: 'manager@adsparktech.com', password: 'AdSparkManager@2026', name: 'Alex Manager', role: 'Manager' }
-        ];
-
-        const matchingFallback = fallbackAdmins.find(f => f.email === emailLower && f.password === password);
-        if (matchingFallback) {
-          result = {
-            success: true,
-            token: `token-fallback-${emailLower.split('@')[0]}-${Date.now()}`,
-            user: {
-              id: `usr-fallback-${Date.now()}`,
-              name: matchingFallback.name,
-              email: matchingFallback.email,
-              role: matchingFallback.role,
-              status: 'active'
-            }
-          };
-        } else {
-          if (fetchErr.message?.includes('connection') || fetchErr.message?.toLowerCase().includes('failed to fetch') || fetchErr.message?.includes('secure connection')) {
-            throw new Error('Invalid email or password (offline mode)');
-          }
-          throw fetchErr;
-        }
+      const response = await secureLogin(email, password, rememberMe);
+      
+      if (!response.success) {
+        throw new Error(response.error || 'Invalid email or password');
       }
 
       setSuccessText('Sign in authentication validated! Accessing dashboard...');
       
-      // Store token depending on Remember Me
-      if (rememberMe) {
-        localStorage.setItem('adspark_admin_token', result.token);
-        localStorage.setItem('adspark_admin_user', JSON.stringify(result.user));
-      } else {
-        sessionStorage.setItem('adspark_admin_token', result.token);
-        sessionStorage.setItem('adspark_admin_user', JSON.stringify(result.user));
-      }
-
       setTimeout(() => {
-        onLoginSuccess(result.token);
+        onLoginSuccess(response.token || '');
       }, 1000);
     } catch (err: any) {
       setErrorText(err.message || 'Invalid email or password');
@@ -165,27 +65,13 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ onLoginSuccess, onClose 
     setLoading(true);
 
     try {
-      let result;
-      try {
-        const res = await safeFetch('/api/auth/forgot-password', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({ email })
-        });
-
-        result = await res.json();
-
-        if (!res.ok) {
-          throw new Error(result.error || result.message || 'An error occurred. Please try again.');
-        }
-        setSuccessText(result.message || 'If that email address exists in our system, we have dispatched a secure recovery code.');
-      } catch (fetchErr: any) {
-        console.warn('Backend forgot-password failed, executing resilient client simulator...', fetchErr);
-        setSuccessText('If that email address exists in our system, we have dispatched a secure recovery code (Offline/Simulation Mode: Use recovery code 123456).');
+      const response = await secureForgotPassword(email);
+      if (!response.success) {
+        throw new Error(response.message || 'Verification service communication error.');
       }
-
+      
+      setSuccessText(response.message);
+      
       setTimeout(() => {
         setAuthMode('verify');
         setSuccessText('');
@@ -210,26 +96,9 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ onLoginSuccess, onClose 
     setLoading(true);
 
     try {
-      let result;
-      try {
-        const res = await safeFetch('/api/auth/reset-password', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({ email, code: verifyCode, newPassword })
-        });
-
-        result = await res.json();
-
-        if (!res.ok) {
-          throw new Error(result.error || result.message || 'Invalid or expired verification code');
-        }
-      } catch (fetchErr: any) {
-        console.warn('Backend reset-password failed, executing resilient client simulator...', fetchErr);
-        if (verifyCode.trim() !== '123456') {
-          throw new Error('Invalid or expired verification code (Simulation requires code 123456)');
-        }
+      const response = await secureResetPassword(email, verifyCode, newPassword);
+      if (!response.success) {
+        throw new Error(response.message || 'Password reset failed');
       }
 
       setSuccessText('Password reset successfully! Returning to login...');
