@@ -64,14 +64,14 @@ async function fetchSupabaseData() {
       client.from('settings').select('*')
     ]);
 
-    if (e1) console.warn('[SUPABASE] Error fetching contact_requests:', e1.message);
-    if (e2) console.warn('[SUPABASE] Error fetching proposal_requests:', e2.message);
-    if (e3) console.warn('[SUPABASE] Error fetching services:', e3.message);
-    if (e4) console.warn('[SUPABASE] Error fetching portfolio:', e4.message);
-    if (e5) console.warn('[SUPABASE] Error fetching testimonials:', e5.message);
-    if (e6) console.warn('[SUPABASE] Error fetching careers:', e6.message);
-    if (e7) console.warn('[SUPABASE] Error fetching admins:', e7.message);
-    if (e8) console.warn('[SUPABASE] Error fetching settings:', e8.message);
+    if (e1) console.log('[SUPABASE_STATUS] Table contact_requests status check:', e1.message);
+    if (e2) console.log('[SUPABASE_STATUS] Table proposal_requests status check:', e2.message);
+    if (e3) console.log('[SUPABASE_STATUS] Table services status check:', e3.message);
+    if (e4) console.log('[SUPABASE_STATUS] Table portfolio status check:', e4.message);
+    if (e5) console.log('[SUPABASE_STATUS] Table testimonials status check:', e5.message);
+    if (e6) console.log('[SUPABASE_STATUS] Table careers status check:', e6.message);
+    if (e7) console.log('[SUPABASE_STATUS] Table admins status check:', e7.message);
+    if (e8) console.log('[SUPABASE_STATUS] Table settings status check:', e8.message);
 
     const result: any = {};
     if (contacts) {
