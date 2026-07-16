@@ -97,19 +97,31 @@ export default function App() {
   const [showLoginModal, setShowLoginModal] = useState<boolean>(false);
   const [isAdminView, setIsAdminView] = useState<boolean>(false);
 
-  // Load database from Local Storage for purely static zero-dependency operation
-  const fetchDatabase = () => {
+  // Load database from the full-stack database endpoint, falling back to Local Storage
+  const fetchDatabase = async () => {
     try {
-      const stored = localStorage.getItem('adspark_db');
-      if (stored) {
-        setData(JSON.parse(stored));
+      const res = await fetch('/api/db');
+      if (res.ok) {
+        const serverData = await res.json();
+        setData(serverData);
+        localStorage.setItem('adspark_db', JSON.stringify(serverData));
       } else {
-        localStorage.setItem('adspark_db', JSON.stringify(fallbackData));
-        setData(fallbackData);
+        throw new Error('Non-ok response from server API');
       }
     } catch (err) {
-      console.error('Error synchronizing local database, using fallback:', err);
-      setData(fallbackData);
+      console.warn('Could not sync with Express server datastore, using local fallback:', err);
+      try {
+        const stored = localStorage.getItem('adspark_db');
+        if (stored) {
+          setData(JSON.parse(stored));
+        } else {
+          localStorage.setItem('adspark_db', JSON.stringify(fallbackData));
+          setData(fallbackData);
+        }
+      } catch (localErr) {
+        console.error('Error loading static backup database:', localErr);
+        setData(fallbackData);
+      }
     } finally {
       setLoading(false);
     }

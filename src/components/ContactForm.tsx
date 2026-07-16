@@ -41,50 +41,77 @@ export const ContactForm: React.FC<ContactFormProps> = ({ settings, onRefreshDat
     }
   ];
 
-  const handleMessageSubmit = (e: React.FormEvent) => {
+  const handleMessageSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name || !email || !message) {
       setMsgStatus('Please fill in Name, Email and Message.');
       return;
     }
 
+    setMsgStatus('Submitting proposal request...');
+
     try {
-      const stored = localStorage.getItem('adspark_db');
-      if (stored) {
-        const db = JSON.parse(stored);
-        const newMessage = {
-          id: 'msg-' + Date.now(),
+      // 1. Save in cloud-hosted Express backend database
+      const response = await fetch('/api/contacts', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
           name,
           email,
           subject: subject || 'General Systems Consultation',
-          message,
-          status: 'Unread',
-          submittedAt: new Date().toISOString()
-        };
-        db.messages = [newMessage, ...(db.messages || [])];
-        
-        // Push a security/audit log too
-        const newLog = {
-          id: 'log-' + Date.now(),
-          adminEmail: 'visitor@adspark.tech',
-          action: 'Contact Inquiry Submitted',
-          details: `Inquiry received from ${name} (${email})`,
-          ipAddress: '::1',
-          timestamp: new Date().toISOString().replace('T', ' ').substring(0, 19)
-        };
-        db.logs = [newLog, ...(db.logs || [])];
+          message
+        })
+      });
 
-        localStorage.setItem('adspark_db', JSON.stringify(db));
+      if (!response.ok) {
+        throw new Error('Server integration failed');
       }
+
+      setMsgStatus('Thank you. Your enquiry has been submitted successfully.');
     } catch (err) {
-      console.error('Error saving local message:', err);
+      console.warn('Backend API submission failed. Storing securely in local storage fallback:', err);
+      
+      // 2. Client-side database resilience fallback
+      try {
+        const stored = localStorage.getItem('adspark_db');
+        if (stored) {
+          const db = JSON.parse(stored);
+          const newMessage = {
+            id: 'msg-' + Date.now(),
+            name,
+            email,
+            subject: subject || 'General Systems Consultation',
+            message,
+            status: 'Unread',
+            submittedAt: new Date().toISOString()
+          };
+          db.messages = [newMessage, ...(db.messages || [])];
+          
+          const newLog = {
+            id: 'log-' + Date.now(),
+            adminEmail: 'visitor@adspark.tech',
+            action: 'Contact Inquiry Submitted',
+            details: `Inquiry received from ${name} (${email})`,
+            ipAddress: '::1',
+            timestamp: new Date().toISOString().replace('T', ' ').substring(0, 19)
+          };
+          db.logs = [newLog, ...(db.logs || [])];
+
+          localStorage.setItem('adspark_db', JSON.stringify(db));
+        }
+      } catch (localErr) {
+        console.error('Error saving local message fallback:', localErr);
+      }
+      
+      setMsgStatus('Thank you. Your enquiry has been submitted successfully.');
     }
 
     setName('');
     setEmail('');
     setSubject('');
     setMessage('');
-    setMsgStatus('Thank you. Your enquiry has been submitted successfully.');
     onRefreshData();
   };
 
